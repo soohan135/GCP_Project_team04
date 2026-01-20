@@ -44,13 +44,28 @@ class AuthService {
       );
 
       // 로그인 성공 후 Firestore에 사용자 데이터 저장
-      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
-        'uid': userCredential.user!.uid,
-        'email': userCredential.user!.email,
-        'displayName': userCredential.user!.displayName,
-        'photoURL': userCredential.user!.photoURL,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .set({
+            'uid': userCredential.user!.uid,
+            'email': userCredential.user!.email,
+            'displayName': userCredential.user!.displayName,
+            'photoURL': userCredential.user!.photoURL,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+
+      // 최초 로그인 시에만 log 컬렉션에 문서 생성
+      if (userCredential.additionalUserInfo?.isNewUser == true) {
+        await FirebaseFirestore.instance
+            .collection('log')
+            .doc(userCredential.user!.uid)
+            .set({
+              'uid': userCredential.user!.uid,
+              'email': userCredential.user!.email,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+      }
 
       return userCredential.user;
     } catch (e) {

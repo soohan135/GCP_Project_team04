@@ -53,7 +53,7 @@ class SettingsScreen extends StatelessWidget {
                   onChanged: (value) {
                     themeProvider.toggleTheme(value);
                   },
-                  activeColor: Colors.blueAccent,
+                  activeThumbColor: Colors.blueAccent,
                 ),
               ],
             ),
