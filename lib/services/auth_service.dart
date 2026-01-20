@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -41,6 +42,16 @@ class AuthService {
       final UserCredential userCredential = await _auth.signInWithCredential(
         credential,
       );
+
+      // 로그인 성공 후 Firestore에 사용자 데이터 저장
+      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+        'uid': userCredential.user!.uid,
+        'email': userCredential.user!.email,
+        'displayName': userCredential.user!.displayName,
+        'photoURL': userCredential.user!.photoURL,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
       return userCredential.user;
     } catch (e) {
       debugPrint("Google Sign-In Error: $e");
