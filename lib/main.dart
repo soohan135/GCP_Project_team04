@@ -2,28 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'providers/theme_provider.dart';
-import 'services/auth_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/estimate_preview_screen.dart';
 import 'screens/nearby_shops_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/login_screen.dart';
 import 'widgets/custom_search_bar.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // Initialize Firebase (assumes google-services.json / GoogleService-Info.plist are present)
-  await Firebase.initializeApp();
-  
+void main() {
   runApp(
     MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        Provider<AuthService>(create: (_) => AuthService()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => ThemeProvider())],
       child: const MyApp(),
     ),
   );
@@ -62,34 +51,7 @@ class MyApp extends StatelessWidget {
         cardColor: const Color(0xFF1E293B),
         dividerColor: const Color(0xFF334155),
       ),
-      home: const AuthWrapper(),
-    );
-  }
-}
-
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
-    
-    return StreamBuilder<User?>(
-      stream: authService.user,
-      builder: (context, snapshot) {
-        // While checking auth state, we can show a loading indicator
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (snapshot.hasData) {
-          return const MainLayout();
-        } else {
-          return const LoginScreen();
-        }
-      },
+      home: const MainLayout(),
     );
   }
 }
