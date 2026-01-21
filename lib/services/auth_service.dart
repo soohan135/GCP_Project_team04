@@ -5,43 +5,58 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  // 1. Singleton instance usage for google_sign_in 7.0.0+
-  // final GoogleSignIn _googleSignIn = GoogleSignIn(); // Removed
-  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   // 1. 사용자의 로그인 상태를 알려주는 스트림 (main.dart의 에러 해결)
-  Stream<User?> get user => _auth.authStateChanges();
+  Stream<User?> get user => _auth.authStateChanges().asyncMap((firebaseUser) async {
+    if (firebaseUser != null) {
+      // 사용자 로그인 시 log 문서 생성 확인
+      await _createLogDocumentIfNeeded(firebaseUser);
+    }
+    return firebaseUser;
+  });
 
   // 2. 구글 로그인 로직
   Future<User?> signInWithGoogle() async {
     try {
-      // 2. 구글 로그인 설정 (serverClientId 추가)
-      // Android에서는 explicit initialization이 필요할 수 있음 (google_sign_in 7.0.0+)
-      // serverClientId: 860955702730-gt7kd9gcnl717uptkmbi2ja3ho8c59rm.apps.googleusercontent.com
-      await _googleSignIn.initialize(
-        serverClientId:
-            '860955702730-gt7kd9gcnl717uptkmbi2ja3ho8c59rm.apps.googleusercontent.com',
-      );
+      // 이미 Firebase에 로그인되어 있는지 확인
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        debugPrint("User already logged in: ${currentUser.uid}");
+        // log 컬렉션에 문서가 없으면 생성
+        await _createLogDocumentIfNeeded(currentUser);
+        return currentUser;
+      }
 
-      // 3. 구글 로그인창 띄우기 (signIn replaced by authenticate)
-      final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
-      // if (googleUser == null) return null; // authenticate throws on error/cancel
-
-      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
-
-      final AuthCredential credential = GoogleAuthProvider.credential(
-        // accessToken: googleAuth.accessToken, // google_sign_in 7.0.0에서 제거됨
-        idToken: googleAuth.idToken,
-      );
-
-      if (googleAuth.idToken == null) {
-        debugPrint("Google Sign-In Error: Missing idToken");
+      // 구글 로그인
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        debugPrint("Google Sign-In cancelled by user");
         return null;
       }
 
-      final UserCredential userCredential = await _auth.signInWithCredential(
-        credential,
+      late GoogleSignInAuthentication googleAuth;
+      try {
+        googleAuth = await googleUser.authentication;
+      } catch (e) {
+        debugPrint("Error getting authentication: $e");
+        // 인증 정보 재시도
+        await _googleSignIn.signOut();
+        return null;
+      }
+
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
       );
+
+      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+
+      if (userCredential.user == null) {
+        debugPrint("Google Sign-In Error: User is null");
+        return null;
+      }
 
       // 로그인 성공 후 Firestore에 사용자 데이터 저장
       await FirebaseFirestore.instance
@@ -55,22 +70,40 @@ class AuthService {
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-      // 최초 로그인 시에만 log 컬렉션에 문서 생성
-      if (userCredential.additionalUserInfo?.isNewUser == true) {
-        await FirebaseFirestore.instance
-            .collection('log')
-            .doc(userCredential.user!.uid)
-            .set({
-              'uid': userCredential.user!.uid,
-              'email': userCredential.user!.email,
-              'createdAt': FieldValue.serverTimestamp(),
-            });
-      }
+      // log 컬렉션에 문서 생성
+      await _createLogDocumentIfNeeded(userCredential.user!);
 
       return userCredential.user;
     } catch (e) {
       debugPrint("Google Sign-In Error: $e");
       return null;
+    }
+  }
+
+  // Firestore log 컬렉션에 문서 생성 (첫 로그인 시에만)
+  Future<void> _createLogDocumentIfNeeded(User user) async {
+    try {
+      final logRef = FirebaseFirestore.instance
+          .collection('log')
+          .doc(user.uid);
+
+      final logSnapshot = await logRef.get();
+
+      if (!logSnapshot.exists) {
+        await logRef.set({
+          'uid': user.uid,
+          'email': user.email,
+          'displayName': user.displayName,
+          'photoURL': user.photoURL,
+          'provider': 'google',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        debugPrint("Log document created successfully for uid: ${user.uid}");
+      } else {
+        debugPrint("Log document already exists for uid: ${user.uid}");
+      }
+    } catch (e) {
+      debugPrint("Error creating log document: $e");
     }
   }
 

@@ -40,7 +40,7 @@ dependencies:
   firebase_core: ^2.32.0
   cloud_firestore: ^4.17.5
   firebase_auth: ^4.16.0
-  google_sign_in: ^7.2.0
+  google_sign_in: ^5.4.4
   google_fonts: ^6.1.0
   lucide_icons: ^0.257.0
   firebase_storage: ^11.6.5
