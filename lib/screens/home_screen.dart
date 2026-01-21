@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/storage_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,8 +14,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   XFile? _image;
+  String? _imageUrl;
   bool _isAnalyzing = false;
+  bool _isUploading = false;
   Map<String, dynamic>? _result;
+  final StorageService _storageService = StorageService();
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -24,22 +27,40 @@ class _HomeScreenState extends State<HomeScreen> {
     if (image != null) {
       setState(() {
         _image = image;
-        _isAnalyzing = true;
+        _isUploading = true;
         _result = null;
+        _imageUrl = null;
       });
 
-      // Simulate AI analysis delay
-      await Future.delayed(const Duration(seconds: 2));
+      // 사진 업로드
+      try {
+        final imageUrl = await _storageService.uploadCrashedCarPicture(image);
+        setState(() {
+          _imageUrl = imageUrl;
+          _isUploading = false;
+          _isAnalyzing = true;
+        });
 
-      setState(() {
-        _isAnalyzing = false;
-        _result = {
-          'damage': '전면 범퍼 파손 (Scratched Bumper)',
-          'confidence': '98.5%',
-          'estimatedPrice': '₩250,000 - ₩350,000',
-          'recommendations': ['범퍼 도색', '범퍼 교환 불필요', '기타 흠집 제거'],
-        };
-      });
+        // Simulate AI analysis delay
+        await Future.delayed(const Duration(seconds: 2));
+
+        setState(() {
+          _isAnalyzing = false;
+          _result = {
+            'damage': '전면 범퍼 파손 (Scratched Bumper)',
+            'confidence': '98.5%',
+            'estimatedPrice': '₩250,000 - ₩350,000',
+            'recommendations': ['범퍼 도색', '범퍼 교환 불필요', '기타 흠집 제거'],
+          };
+        });
+      } catch (e) {
+        setState(() {
+          _isUploading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('사진 업로드 실패: $e')),
+        );
+      }
     }
   }
 
@@ -48,11 +69,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       String uid = FirebaseAuth.instance.currentUser!.uid;
+
       await FirebaseFirestore.instance.collection('users').doc(uid).collection('estimates').add({
         'damage': _result!['damage'],
         'estimatedPrice': _result!['estimatedPrice'],
         'recommendations': _result!['recommendations'],
         'date': DateTime.now().toIso8601String(),
+        'imageUrl': _imageUrl,
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('견적이 저장되었습니다.')),
@@ -88,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 48),
 
-          if (!_isAnalyzing && _result == null)
+          if (!_isAnalyzing && !_isUploading && _result == null)
             GestureDetector(
               onTap: _pickImage,
               child: Container(
@@ -100,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: Border.all(color: Colors.grey.shade300, width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
+                      color: Colors.black.withValues(alpha: 0.02),
                       blurRadius: 10,
                       spreadRadius: 2,
                     ),
@@ -142,6 +165,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+            ),
+
+          if (_isUploading)
+            Column(
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 24),
+                const Text(
+                  '사진을 업로드 중...',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Firebase Storage에 사진을 저장하고 있습니다.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
             ),
 
           if (_isAnalyzing)
