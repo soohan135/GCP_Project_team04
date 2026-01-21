@@ -1,7 +1,56 @@
-import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+
+// [모델 클래스: ServiceCenter] - (변경 없음)
+class ServiceCenter {
+  final String id;
+  final String name;
+  final String address;
+  final String tel;
+  final double latitude;
+  final double longitude;
+  final double distanceFromUser;
+  final double rating;
+  final bool isOpen;
+
+  ServiceCenter({
+    required this.id,
+    required this.name,
+    required this.address,
+    required this.tel,
+    required this.latitude,
+    required this.longitude,
+    required this.distanceFromUser,
+    this.rating = 4.5,
+    this.isOpen = true,
+  });
+
+  factory ServiceCenter.fromGeoDocument(
+    DocumentSnapshot<Map<String, dynamic>> document,
+    double distanceInKm,
+  ) {
+    final data = document.data()!;
+    final positionMap = data['position'] as Map<String, dynamic>? ?? {};
+    final geoPoint = positionMap['geopoint'] as GeoPoint?;
+
+    return ServiceCenter(
+      id: document.id,
+      name: data['name'] ?? '이름 없음',
+      address: data['address'] ?? '주소 정보 없음',
+      tel: data['tel'] ?? '',
+      latitude: geoPoint?.latitude ?? 0.0,
+      longitude: geoPoint?.longitude ?? 0.0,
+      distanceFromUser: distanceInKm,
+      rating: 4.5,
+      isOpen: true,
+    );
+  }
+}
 
 class NearbyShopsScreen extends StatefulWidget {
   const NearbyShopsScreen({super.key});
@@ -11,123 +60,122 @@ class NearbyShopsScreen extends StatefulWidget {
 }
 
 class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _shops = [];
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  static const double _searchRadiusInKm = 100.0;
+
+  Stream<List<ServiceCenter>>? _shopsStream;
+
+  // [추가] 로딩 상태를 알려줄 메시지 변수
+  String _statusMessage = '위치 권한 및 GPS를 확인 중입니다...';
 
   @override
   void initState() {
     super.initState();
-    _fetchNearbyShops();
+    _initializeLocationAndQuery();
   }
 
-  Future<void> _fetchNearbyShops() async {
-    setState(() => _isLoading = true);
-
+  Future<void> _initializeLocationAndQuery() async {
     try {
-      // 1. 내 현재 위치 확보
-      Position myPos = await _determinePosition();
+      // 1. 위치 확보 시도
+      final position = await _determinePosition();
 
-      // 2. Firestore에서 데이터 조회
-      QuerySnapshot snapshot = await _db.collection('service_centers').get();
-      debugPrint(
-        'Firestore fetch success. Docs count: ${snapshot.docs.length}',
+      /////////////////////////////////////
+      debugPrint('📍 현재 내 위치: ${position.latitude}, ${position.longitude}');
+
+      // DB에 있는 '달구지카크리닉(일산)'의 좌표 (아까 사진에 있던 값)
+      double targetLat = 37.6441906341;
+      double targetLng = 126.7823187377;
+
+      // 내 위치와 DB 데이터 사이의 거리 계산 (km 단위)
+      double distInMeters = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        targetLat,
+        targetLng,
       );
+      double distInKm = distInMeters / 1000;
 
-      List<Map<String, dynamic>> centers = [];
+      debugPrint('📏 DB 데이터(일산)까지의 거리: $distInKm km');
+      //////////////////////////////
 
-      // 3. 데이터 파싱 및 거리 계산
-      for (var doc in snapshot.docs) {
-        var data = doc.data() as Map<String, dynamic>;
-
-        // [구조 수정] 이미지에 따르면 geopoint는 'position' 맵 필드 안에 있음
-        // {
-        //   "name": "...",
-        //   "position": {
-        //     "geopoint": GeoPoint(lat, lng),
-        //     "geohash": "..."
-        //   }
-        // }
-
-        var positionMap = data['position'];
-        // position 필드가 없거나 Map이 아니면 건너뜀
-        if (positionMap == null || positionMap is! Map) {
-          debugPrint(
-            'Document ${doc.id} has no position field or invalid type',
-          );
-          continue;
-        }
-
-        var geoData = positionMap['geopoint'];
-        if (geoData == null) {
-          debugPrint('Document ${doc.id} has no geopoint in position');
-          continue;
-        }
-
-        double centerLat = 0.0;
-        double centerLng = 0.0;
-
-        // 데이터 구조 호환성 처리 (GeoPoint 또는 List<double>)
-        if (geoData is GeoPoint) {
-          centerLat = geoData.latitude;
-          centerLng = geoData.longitude;
-        } else if (geoData is List && geoData.length >= 2) {
-          centerLat = (geoData[0] as num).toDouble();
-          centerLng = (geoData[1] as num).toDouble();
-        } else if (geoData is Map &&
-            geoData.containsKey('latitude') &&
-            geoData.containsKey('longitude')) {
-          // 일부 경우를 대비한 추가 방어 (Map으로 오는 경우)
-          centerLat = (geoData['latitude'] as num).toDouble();
-          centerLng = (geoData['longitude'] as num).toDouble();
-        } else {
-          debugPrint(
-            'Document ${doc.id} has invalid geopoint format: $geoData',
-          );
-          continue;
-        }
-
-        // 거리 계산 (미터 단위)
-        double distanceInMeters = Geolocator.distanceBetween(
-          myPos.latitude,
-          myPos.longitude,
-          centerLat,
-          centerLng,
-        );
-
-        // UI 데이터 포맷으로 변환
-        centers.add({
-          'name': data['name'] ?? '이름 없음',
-          'address': data['address'] ?? '주소 정보 없음',
-          // 거리 포맷팅 (km 단위, 소수점 1자리)
-          'distance': '${(distanceInMeters / 1000).toStringAsFixed(1)}km',
-          'distanceVal': distanceInMeters, // 정렬을 위한 숫자 값
-          // 평점과 영업여부는 Firestore에 없으므로 기본값 설정 (추후 연동 필요)
-          'rating': 4.5,
-          'isOpen': true,
+      // 2. 위치 확보 성공 시 UI 업데이트 (로딩 메시지 변경)
+      if (mounted) {
+        setState(() {
+          // 소수점 4자리까지만 보여주어 깔끔하게 표시
+          _statusMessage =
+              '현재 위치 확인 완료!\n'
+              '(${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})\n\n'
+              '주변 10km 반경 정비소를 탐색 중입니다...';
         });
       }
 
-      // 4. 거리순 정렬 (오름차순)
-      centers.sort(
-        (a, b) =>
-            (a['distanceVal'] as double).compareTo(b['distanceVal'] as double),
+      // 3. 쿼리 및 스트림 설정
+      final GeoCollectionReference<Map<String, dynamic>> geoCollectionRef =
+          GeoCollectionReference<Map<String, dynamic>>(
+            FirebaseFirestore.instance.collection('service_centers'),
+          );
+
+      final GeoFirePoint center = GeoFirePoint(
+        GeoPoint(position.latitude, position.longitude),
       );
 
-      _shops = centers;
-    } catch (e) {
-      debugPrint('Error fetching shops: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('데이터 로드 실패: $e')));
-    } finally {
+      final stream = geoCollectionRef
+          .subscribeWithin(
+            center: center,
+            radiusInKm: _searchRadiusInKm,
+            field: 'position.geohash',
+            geopointFrom: (data) =>
+                (data['position'] as Map<String, dynamic>)['geopoint']
+                    as GeoPoint,
+            strictMode: true,
+          )
+          .map((snapshots) {
+            final List<ServiceCenter> shops = snapshots
+                .map((shot) {
+                  final data = shot.data();
+                  if (data == null) return null;
+
+                  final positionMap = data['position'] as Map<String, dynamic>?;
+                  if (positionMap == null) return null;
+
+                  final geoPoint = positionMap['geopoint'] as GeoPoint?;
+                  if (geoPoint == null) return null;
+
+                  final distInMeters = Geolocator.distanceBetween(
+                    position.latitude,
+                    position.longitude,
+                    geoPoint.latitude,
+                    geoPoint.longitude,
+                  );
+                  final dist = distInMeters / 1000;
+
+                  return ServiceCenter.fromGeoDocument(shot, dist);
+                })
+                .whereType<ServiceCenter>()
+                .toList();
+
+            // 거리순 정렬
+            shops.sort(
+              (a, b) => a.distanceFromUser.compareTo(b.distanceFromUser),
+            );
+
+            return shops;
+          });
+
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _shopsStream = stream;
+        });
+      }
+    } catch (e) {
+      debugPrint('오류 발생: $e');
+      if (mounted) {
+        setState(() {
+          _statusMessage = '위치 정보를 가져오는데 실패했습니다.\n$e';
+        });
       }
     }
   }
 
-  /// 위치 권한 확인 및 현재 위치 반환
   Future<Position> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -160,120 +208,158 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
         const Padding(
           padding: EdgeInsets.all(24.0),
           child: Text(
-            '내 근처 정비소',
+            '내 근처 정비소 (10km)',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
         ),
-        if (_isLoading)
-          const Expanded(child: Center(child: CircularProgressIndicator()))
-        else if (_shops.isEmpty)
-          const Expanded(child: Center(child: Text('근처에 정비소가 없습니다.')))
-        else
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              itemCount: _shops.length,
-              itemBuilder: (context, index) {
-                final shop = _shops[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.blueAccent.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          LucideIcons.mapPin,
-                          color: Colors.blueAccent,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              shop['name'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              shop['address'],
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(
-                                  LucideIcons.star,
-                                  size: 14,
-                                  color: Colors.amber,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  shop['rating'].toString(),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  shop['distance'],
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.blueAccent,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: shop['isOpen']
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          shop['isOpen'] ? '영업중' : '영업종료',
-                          style: TextStyle(
-                            color: shop['isOpen'] ? Colors.green : Colors.red,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+        Expanded(
+          // _shopsStream이 준비되지 않았으면 로딩 화면 표시
+          child: _shopsStream == null
+              ? _buildLoadingView() // [분리된 로딩 위젯]
+              : StreamBuilder<List<ServiceCenter>>(
+                  stream: _shopsStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Center(child: Text('오류 발생: ${snapshot.error}'));
+                    }
+
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      // 스트림 연결 중에도 위치 정보는 확보된 상태이므로 로딩 뷰 표시
+                      return _buildLoadingView();
+                    }
+
+                    final shops = snapshot.data ?? [];
+
+                    if (shops.isEmpty) {
+                      return const Center(child: Text('근처에 정비소가 없습니다.'));
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      itemCount: shops.length,
+                      itemBuilder: (context, index) {
+                        return _buildShopItem(context, shops[index]);
+                      },
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  // [UI 추가] 로딩 중일 때 보여줄 위젯 (위치 정보 텍스트 포함)
+  Widget _buildLoadingView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 24),
+          Text(
+            _statusMessage, // 상태에 따라 변경되는 메시지
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+              height: 1.5, // 줄간격
             ),
           ),
-      ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShopItem(BuildContext context, ServiceCenter shop) {
+    // (기존 아이템 UI 코드와 동일)
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: Colors.blueAccent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(LucideIcons.mapPin, color: Colors.blueAccent),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  shop.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  shop.address,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+                if (shop.tel.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    shop.tel,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(LucideIcons.star, size: 14, color: Colors.amber),
+                    const SizedBox(width: 4),
+                    Text(
+                      shop.rating.toString(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '${shop.distanceFromUser.toStringAsFixed(1)}km',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.blueAccent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: shop.isOpen
+                  ? Colors.green.withOpacity(0.1)
+                  : Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              shop.isOpen ? '영업중' : '영업종료',
+              style: TextStyle(
+                color: shop.isOpen ? Colors.green : Colors.red,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
