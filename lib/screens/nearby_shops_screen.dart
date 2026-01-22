@@ -6,7 +6,7 @@ import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// [모델 클래스: ServiceCenter] - (변경 없음)
+// [모델 클래스: ServiceCenter]
 class ServiceCenter {
   final String id;
   final String name;
@@ -60,11 +60,9 @@ class NearbyShopsScreen extends StatefulWidget {
 }
 
 class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
-  static const double _searchRadiusInKm = 100.0;
+  static const double _searchRadiusInKm = 10.0; // 실서비스용 10km 설정
 
   Stream<List<ServiceCenter>>? _shopsStream;
-
-  // [추가] 로딩 상태를 알려줄 메시지 변수
   String _statusMessage = '위치 권한 및 GPS를 확인 중입니다...';
 
   @override
@@ -75,54 +73,46 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
 
   Future<void> _initializeLocationAndQuery() async {
     try {
-      // 1. 위치 확보 시도
-      final position = await _determinePosition();
+      // 위치 권한 확인 및 요청
+      await _determinePosition();
 
-      /////////////////////////////////////
-      debugPrint('📍 현재 내 위치: ${position.latitude}, ${position.longitude}');
+      // 1. 위치 확보 (속도 최적화 버전)
+      Position? position = await Geolocator.getLastKnownPosition();
 
-      // DB에 있는 '달구지카크리닉(일산)'의 좌표 (아까 사진에 있던 값)
-      double targetLat = 37.6441906341;
-      double targetLng = 126.7823187377;
-
-      // 내 위치와 DB 데이터 사이의 거리 계산 (km 단위)
-      double distInMeters = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        targetLat,
-        targetLng,
+      // 마지막 위치가 없으면 정밀도를 낮춰서 빠르게 현재 위치 획득
+      position ??= await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low,
+          timeLimit: Duration(seconds: 5),
+        ),
       );
-      double distInKm = distInMeters / 1000;
 
-      debugPrint('📏 DB 데이터(일산)까지의 거리: $distInKm km');
-      //////////////////////////////
+      if (position == null) {
+        throw Exception('위치 정보를 가져올 수 없습니다.');
+      }
 
-      // 2. 위치 확보 성공 시 UI 업데이트 (로딩 메시지 변경)
+      final double myLat = position.latitude;
+      final double myLng = position.longitude;
+
       if (mounted) {
         setState(() {
-          // 소수점 4자리까지만 보여주어 깔끔하게 표시
-          _statusMessage =
-              '현재 위치 확인 완료!\n'
-              '(${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})\n\n'
-              '주변 10km 반경 정비소를 탐색 중입니다...';
+          _statusMessage = '주변 정비소를 탐색 중입니다...';
         });
       }
 
-      // 3. 쿼리 및 스트림 설정
+      // 2. 쿼리 및 스트림 설정 (최적화 버전)
       final GeoCollectionReference<Map<String, dynamic>> geoCollectionRef =
           GeoCollectionReference<Map<String, dynamic>>(
             FirebaseFirestore.instance.collection('service_centers'),
           );
 
-      final GeoFirePoint center = GeoFirePoint(
-        GeoPoint(position.latitude, position.longitude),
-      );
+      final GeoFirePoint center = GeoFirePoint(GeoPoint(myLat, myLng));
 
       final stream = geoCollectionRef
           .subscribeWithin(
             center: center,
             radiusInKm: _searchRadiusInKm,
-            field: 'position.geohash',
+            field: 'position', // 중첩 필드이므로 'position' 상위 맵 지정
             geopointFrom: (data) =>
                 (data['position'] as Map<String, dynamic>)['geopoint']
                     as GeoPoint,
@@ -141,8 +131,8 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
                   if (geoPoint == null) return null;
 
                   final distInMeters = Geolocator.distanceBetween(
-                    position.latitude,
-                    position.longitude,
+                    myLat,
+                    myLng,
                     geoPoint.latitude,
                     geoPoint.longitude,
                   );
@@ -170,7 +160,7 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
       debugPrint('오류 발생: $e');
       if (mounted) {
         setState(() {
-          _statusMessage = '위치 정보를 가져오는데 실패했습니다.\n$e';
+          _statusMessage = '정보를 가져오는데 실패했습니다.\n$e';
         });
       }
     }
@@ -181,9 +171,7 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
     LocationPermission permission;
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return Future.error('위치 서비스가 꺼져 있습니다.');
-    }
+    if (!serviceEnabled) return Future.error('위치 서비스가 꺼져 있습니다.');
 
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -197,7 +185,9 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
       return Future.error('위치 권한이 영구적으로 거부되었습니다.');
     }
 
-    return await Geolocator.getCurrentPosition();
+    return await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
+    );
   }
 
   @override
@@ -205,17 +195,26 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.all(24.0),
-          child: Text(
-            '내 근처 정비소 (10km)',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '내 근처 정비소 (10km)',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _initializeLocationAndQuery,
+              ),
+            ],
           ),
         ),
+        // 현재 위치 표시 바 제거
         Expanded(
-          // _shopsStream이 준비되지 않았으면 로딩 화면 표시
           child: _shopsStream == null
-              ? _buildLoadingView() // [분리된 로딩 위젯]
+              ? _buildLoadingView()
               : StreamBuilder<List<ServiceCenter>>(
                   stream: _shopsStream,
                   builder: (context, snapshot) {
@@ -224,14 +223,13 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
                     }
 
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      // 스트림 연결 중에도 위치 정보는 확보된 상태이므로 로딩 뷰 표시
                       return _buildLoadingView();
                     }
 
                     final shops = snapshot.data ?? [];
 
                     if (shops.isEmpty) {
-                      return const Center(child: Text('근처에 정비소가 없습니다.'));
+                      return const Center(child: Text('10km 이내에 정비소가 없습니다.'));
                     }
 
                     return ListView.builder(
@@ -248,7 +246,6 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
     );
   }
 
-  // [UI 추가] 로딩 중일 때 보여줄 위젯 (위치 정보 텍스트 포함)
   Widget _buildLoadingView() {
     return Center(
       child: Column(
@@ -257,13 +254,9 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
           const CircularProgressIndicator(),
           const SizedBox(height: 24),
           Text(
-            _statusMessage, // 상태에 따라 변경되는 메시지
+            _statusMessage,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-              height: 1.5, // 줄간격
-            ),
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
           ),
         ],
       ),
@@ -271,7 +264,6 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
   }
 
   Widget _buildShopItem(BuildContext context, ServiceCenter shop) {
-    // (기존 아이템 UI 코드와 동일)
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -308,13 +300,6 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
                   shop.address,
                   style: const TextStyle(color: Colors.grey, fontSize: 13),
                 ),
-                if (shop.tel.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    shop.tel,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -339,23 +324,6 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
                   ],
                 ),
               ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: shop.isOpen
-                  ? Colors.green.withOpacity(0.1)
-                  : Colors.red.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              shop.isOpen ? '영업중' : '영업종료',
-              style: TextStyle(
-                color: shop.isOpen ? Colors.green : Colors.red,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
             ),
           ),
         ],
