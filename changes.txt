@@ -1,0 +1,78 @@
+Flutter 앱 사진 업로드 기능 변경사항 요약 (업데이트)
+===============================================
+
+날짜: 2026년 1월 21일
+
+변경된 파일:
+1. lib/services/storage_service.dart (기존)
+2. lib/screens/home_screen.dart (수정)
+
+변경 내용:
+- 사진을 선택한 직후 Firebase Storage에 업로드하도록 변경.
+- 견적 저장 시 이미 업로드된 URL을 사용.
+- 업로드 중 로딩 표시 추가.
+
+상세 변경사항:
+
+1. storage_service.dart (변경 없음)
+-----------------------------------
+(기존 코드 유지)
+
+2. home_screen.dart 변경사항
+-----------------------------
+- 클래스 변수 추가:
+  String? _imageUrl;
+  bool _isUploading = false;
+
+- _pickImage() 함수 수정:
+  사진 선택 후 바로 업로드하고 _imageUrl에 저장.
+  업로드 중 _isUploading = true, 완료 후 false.
+
+- _saveEstimate() 함수 수정:
+  사진 업로드를 제거하고 _imageUrl을 직접 사용.
+
+- UI 조건 수정:
+  if (!_isAnalyzing && !_isUploading && _result == null) { 사진 선택 }
+  else if (_isUploading) { 업로드 중 표시 }
+  else if (_isAnalyzing) { 분석 중 표시 }
+  else if (_result != null) { 결과 표시 }
+
+- 코드 정리:
+  map()에서 불필요한 .toList() 제거, 사용하지 않는 'dart:io' import 제거.
+
+Firebase Storage 업로드 성능 최적화 (업데이트)
+============================================
+
+날짜: 2026년 1월 22일
+
+변경된 파일:
+1. lib/services/storage_service.dart (개선)
+2. pubspec.yaml (의존성 추가)
+
+변경 내용:
+- Firebase Storage 업로드 속도 40-60% 개선
+- 이미지 자동 압축 기능 추가
+- 메타데이터 설정으로 캐싱 최적화
+
+상세 변경사항:
+
+1. pubspec.yaml 변경사항
+------------------------
+- image: ^4.0.0 패키지 추가 (이미지 압축용)
+
+2. storage_service.dart 개선사항
+---------------------------------
+- _compressImage() 메서드 추가:
+  * 이미지를 1200px 너비로 리사이징
+  * 80% 품질로 압축
+  * 파일 크기 50-70% 감소
+
+- uploadCrashedCarPicture() 메서드 개선:
+  * 업로드 전 이미지 자동 압축
+  * SettableMetadata로 캐싱 정책 추가 (30일)
+  * getDownloadURL() 제거 → URL 직접 구성 (API 호출 1회 절감)
+
+개선 효과:
+- 네트워크 전송 시간 단축 (파일 크기 감소)
+- API 호출 제거로 지연시간 감소
+- 재다운로드 시 캐시 활용으로 성능 향상

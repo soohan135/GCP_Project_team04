@@ -1,101 +1,134 @@
-import logging
-from io import BytesIO
+import functions_framework
+from google.cloud import firestore
+from datetime import datetime
+import re
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, HttpUrl
-from PIL import Image
-import requests
+# Firestore 클라이언트 초기화 (함수 외부에서 초기화하여 재사용)
+db = firestore.Client()
 
-# --- 설정 ---
-# TODO: 향후 실제 AI 모델 서비스 URL로 교체하거나 환경 변수에서 로드하세요.
-# 예: AI_MODEL_ENDPOINT = "http://localhost:8001/v1/models/damage-detection"
-AI_MODEL_ENDPOINT = None 
-
-# 운영 환경에 적합한 로그 출력 설정
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
-
-app = FastAPI(
-    title="자동차 파손 분석 서비스",
-    description="자동차 이미지를 처리하고 파손 예측 견적을 가져오는 API입니다.",
-    version="1.0.0"
-)
-
-# --- 데이터 모델 ---
-class AnalysisRequest(BaseModel):
-    user_id: str
-    image_url: HttpUrl  # Pydantic이 해당 문자열이 올바른 URL인지 자동으로 검증합니다.
-
-class AnalysisResponse(BaseModel):
-    status: str
-    damage_part: str | None
-    estimated_cost: int | None
-    message: str
-
-# --- 보조 함수 ---
-def _mock_ai_inference(image: Image.Image) -> dict:
+def parse_filename(filename):
     """
-    AI 모델의 응답을 시뮬레이션합니다.
-    TODO: 이 로직을 실제 AI 모델 API 호출 또는 로컬 추론 코드로 교체하세요.
+    파일명에서 사용자 UID를 추출합니다.
+    형식: {uid}_{YYYYMMDD}.jpg
+    예: user123_20240122.jpg -> user123
     """
-    # 임시 로직 (테스트용)
+    # 확장자 제거
+    base_name = filename.rsplit('.', 1)[0]
+    
+    # 마지막 언더스코어(_)를 기준으로 분리 (날짜 부분 분리)
+    parts = base_name.rsplit('_', 1)
+    
+    if len(parts) == 2:
+        return parts[0]
+    return None
+
+def mock_prediction(bucket, filename):
+    """
+    Mock AI 예측 함수 (Vertex AI 연동 전 단계)
+    """
+    download_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket}/o/crashed_car_picture%2F{filename}?alt=media"
+    
+    # 더미 데이터 반환
     return {
-        "part": "front_bumper",
-        "cost": 350000
+        "damage": "전면 범퍼 파손 (Scratched Bumper)",
+        "estimatedPrice": "₩250,000 - ₩350,000",
+        "recommendations": ["범퍼 도색", "범퍼 교환 불필요", "기타 흠집 제거"],
+        "imageUrl": download_url,
+        "confidence": "98.5%"
     }
 
-# --- API 엔드포인트 ---
-@app.get("/", tags=["Health"])
-async def health_check():
-    """서버 가동 여부를 확인합니다."""
-    return {"status": "active", "service": "자동차 파손 분석 API"}
-
-@app.post("/predict", response_model=AnalysisResponse, tags=["Analysis"])
-async def analyze_damage(request: AnalysisRequest):
+@functions_framework.cloud_event
+def analyze_crashed_car(cloud_event):
     """
-    이미지 URL을 수신하고, 접근성을 검증한 후 AI 모델에 분석을 요청합니다.
+    Google Cloud Storage에 파일이 업로드될 때 트리거되는 Cloud Function
+    Support both Direct Storage Triggers and Cloud Audit Log Triggers.
     """
-    logger.info(f"사용자 ID {request.user_id}로부터 분석 요청 수신")
+    data = cloud_event.data
     
-    # 1. 이미지 가져오기 및 검증
+    event_id = cloud_event["id"]
+    event_type = cloud_event["type"]
+    timeCreated = data.get("timeCreated", datetime.now().isoformat())
+    
+    # Audit Log Trigger vs Direct Storage Trigger handling
+    if "protoPayload" in data:
+        # Case 1: Cloud Audit Log Trigger
+        print("Processing as Cloud Audit Log event...")
+        resource_name = data["protoPayload"]["resourceName"]
+        # resource_name format: projects/_/buckets/{bucket}/objects/{name}
+        match = re.search(r'projects/_/buckets/(.*?)/objects/(.*)', resource_name)
+        if match:
+            bucket = match.group(1)
+            name = match.group(2)
+        else:
+            print(f"Error: Could not parse resourceName: {resource_name}")
+            return
+        # Audit logs don't typically carry contentType in the top level. 
+        # We'll assume it's valid if it matched the path pattern, or fetch metadata if strictly needed.
+        contentType = "image/unknown" 
+    else:
+        # Case 2: Direct Storage Trigger (Legacy/Standard)
+        print("Processing as Direct Storage event...")
+        bucket = data.get("bucket")
+        name = data.get("name")
+        contentType = data.get("contentType", "")
+
+    print(f"Event ID: {event_id}")
+    print(f"Event Type: {event_type}")
+    print(f"Bucket: {bucket}")
+    print(f"File: {name}")
+    print(f"Created: {timeCreated}")
+    print(f"Content Type: {contentType}")
+
+    if not bucket or not name:
+        print("Error: Bucket or Name not found in event data.")
+        return
+
+    # 1. 파일 경로 및 이름 검증 ('crashed_car_picture/' 폴더 내의 파일인지 확인)
+    if not name.startswith("crashed_car_picture/"):
+        print(f"Skipping file not in target folder: {name}")
+        return
+
+    # 2. 이미지 파일 검증 (Audit Log일 경우 contentType이 부정확할 수 있으므로 확장자 체크 추가)
+    is_image_type = contentType.startswith("image/")
+    is_image_ext = name.lower().endswith(('.jpg', '.jpeg', '.png'))
+    
+    if not (is_image_type or is_image_ext):
+        print(f"Skipping non-image file: {name} (Type: {contentType})")
+        return
+
+    # 2. 파일명에서 UID 추출
+    # name은 'crashed_car_picture/user123_20240122.jpg' 형태
+    file_basename = name.split('/')[-1]
+    uid = parse_filename(file_basename)
+
+    if not uid:
+        print(f"Could not extract UID from filename: {file_basename}")
+        return
+
+    print(f"Detected UID: {uid}")
+
     try:
-        # 제공된 URL(예: Firebase Storage)에서 이미지를 가져옵니다.
-        response = requests.get(str(request.image_url), timeout=10)
-        response.raise_for_status()
+        # 3. AI 추론 (Mock)
+        # 실제 구현시에는 여기서 Vertex AI Endpoint를 호출합니다.
+        prediction_result = mock_prediction(bucket, file_basename)
         
-        # 유효한 이미지 파일인지 확인합니다.
-        image = Image.open(BytesIO(response.content))
-        image.verify() # 파일 무결성 검증
+        # 4. Firestore에 결과 저장
+        # 컬렉션 경로: users/{uid}/estimates
+        doc_ref = db.collection("users").document(uid).collection("estimates").document()
         
-        # 처리를 위해 다시 엽니다 (verify() 함수가 파일 포인터를 끝으로 이동시키기 때문)
-        image = Image.open(BytesIO(response.content)) 
+        estimate_data = {
+            "damage": prediction_result["damage"],
+            "estimatedPrice": prediction_result["estimatedPrice"],
+            "recommendations": prediction_result["recommendations"],
+            "imageUrl": prediction_result["imageUrl"],
+            "createdAt": datetime.now(), # 서버 시간
+            "status": "completed"
+        }
         
-        logger.info(f"이미지 검증 성공. 크기: {image.size}, 포맷: {image.format}")
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"이미지 다운로드 실패: {e}")
-        raise HTTPException(status_code=400, detail="제공된 URL에서 이미지를 가져오지 못했습니다.")
-    except Exception as e:
-        logger.error(f"유효하지 않은 이미지 데이터: {e}")
-        raise HTTPException(status_code=400, detail="제공된 URL이 유효한 이미지를 가리키고 있지 않습니다.")
-
-    # 2. AI 추론 (Inference)
-    try:
-        # 실제 상황에서는 여기서 AI 서버로 'image' 또는 'request.image_url'을 전송합니다.
-        result = _mock_ai_inference(image)
-        
-        logger.info(f"분석 완료. 파손 부위: {result['part']}, 예상 비용: {result['cost']}")
-        
-        return AnalysisResponse(
-            status="success",
-            damage_part=result['part'],
-            estimated_cost=result['cost'],
-            message="성공적으로 분석되었습니다."
-        )
+        doc_ref.set(estimate_data)
+        print(f"Successfully saved estimate to Firestore: users/{uid}/estimates/{doc_ref.id}")
 
     except Exception as e:
-        logger.error(f"AI 처리 중 오류 발생: {e}")
-        raise HTTPException(status_code=500, detail="AI 분석 중 내부 오류가 발생했습니다.")
+        print(f"Error processing image: {e}")
+        # 필요시 에러 로깅을 강화하거나 재시도 로직 추가 가능
+        raise e

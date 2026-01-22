@@ -45,7 +45,11 @@ dependencies:
   lucide_icons: ^0.257.0
   firebase_storage: ^11.6.5
   firebase_analytics: ^10.10.7
+<<<<<<< HEAD
   geoflutterfire_plus: ^0.0.21
+=======
+  image: ^4.0.0
+>>>>>>> upload
 
 dev_dependencies:
   flutter_test:

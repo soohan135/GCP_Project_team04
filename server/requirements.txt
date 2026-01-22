@@ -1,5 +1,2 @@
-fastapi
-uvicorn
-requests
-Pillow
-pydantic
+functions-framework==3.*
+google-cloud-firestore
