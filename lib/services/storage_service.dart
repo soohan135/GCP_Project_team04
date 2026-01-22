@@ -45,13 +45,16 @@ class StorageService {
       // uid와 날짜 문자열 생성
       final uid = user.uid;
       final now = DateTime.now();
-      final dateString = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+      final dateString =
+          '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
 
       // 카운터 문서 ID
       final counterDocId = '${uid}_${dateString}';
 
       // 트랜잭션으로 카운터 증가
-      final counterRef = _firestore.collection('upload_counters').doc(counterDocId);
+      final counterRef = _firestore
+          .collection('upload_counters')
+          .doc(counterDocId);
       int sequenceNumber = 1;
       await _firestore.runTransaction((transaction) async {
         final snapshot = await transaction.get(counterRef);
@@ -85,22 +88,25 @@ class StorageService {
       );
 
       // 3. 파일 업로드
-      await ref.putFile(fileToUpload, metadata);
+      final TaskSnapshot snapshot = await ref.putFile(fileToUpload, metadata);
 
-      // 4. URL 미리 구성 (API 호출 제거로 속도 개선)
-      final downloadUrl = 'https://firebasestorage.googleapis.com/v0/b/'
-          '${_storage.bucket}/o/crashed_car_picture%2F$fileName.jpg'
-          '?alt=media';
+      // 4. 다운로드 URL 가져오기 (토큰 포함으로 캐시 문제 해결)
+      final downloadUrl = await snapshot.ref.getDownloadURL();
 
       // 5. Firestore에 estimate_history 서브컬렉션에 문서 추가
-      await _firestore.collection('users').doc(uid).collection('estimate_history').doc('$fileName.jpg').set({
-        'createdAt': now.toIso8601String(),
-        'estimateCost': null,
-        'imageUploadUrl': null,
-        'imageDamageUrl': null,
-        'imageDamagePartUrl': null,
-        'note': null,
-      });
+      await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('estimate_history')
+          .doc('$fileName.jpg')
+          .set({
+            'createdAt': now.toIso8601String(),
+            'estimateCost': null,
+            'imageUploadUrl': downloadUrl, // 업로드된 실제 URL 저장
+            'imageDamageUrl': null,
+            'imageDamagePartUrl': null,
+            'note': null,
+          });
 
       return downloadUrl;
     } catch (e) {
