@@ -48,19 +48,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       String uid = FirebaseAuth.instance.currentUser!.uid;
-      await FirebaseFirestore.instance.collection('users').doc(uid).collection('estimates').add({
-        'damage': _result!['damage'],
-        'estimatedPrice': _result!['estimatedPrice'],
-        'recommendations': _result!['recommendations'],
-        'date': DateTime.now().toIso8601String(),
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('견적이 저장되었습니다.')),
-      );
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('estimates')
+          .add({
+            'damage': _result!['damage'],
+            'estimatedPrice': _result!['estimatedPrice'],
+            'recommendations': _result!['recommendations'],
+            'date': DateTime.now().toIso8601String(),
+          });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('견적이 저장되었습니다.')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('저장 실패: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
     }
   }
 
