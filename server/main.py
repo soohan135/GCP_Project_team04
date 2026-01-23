@@ -1,10 +1,6 @@
 import functions_framework
-from google.cloud import firestore
 from datetime import datetime
 import re
-
-# Firestore 클라이언트 초기화 (함수 외부에서 초기화하여 재사용)
-db = firestore.Client()
 
 def parse_filename(filename):
     """
@@ -112,21 +108,9 @@ def analyze_crashed_car(cloud_event):
         # 실제 구현시에는 여기서 Vertex AI Endpoint를 호출합니다.
         prediction_result = mock_prediction(bucket, file_basename)
         
-        # 4. Firestore에 결과 저장
-        # 컬렉션 경로: users/{uid}/estimates
-        doc_ref = db.collection("users").document(uid).collection("estimates").document()
-        
-        estimate_data = {
-            "damage": prediction_result["damage"],
-            "estimatedPrice": prediction_result["estimatedPrice"],
-            "recommendations": prediction_result["recommendations"],
-            "imageUrl": prediction_result["imageUrl"],
-            "createdAt": datetime.now(), # 서버 시간
-            "status": "completed"
-        }
-        
-        doc_ref.set(estimate_data)
-        print(f"Successfully saved estimate to Firestore: users/{uid}/estimates/{doc_ref.id}")
+        # 4. 결과 로그 출력 (Firestore 저장 대신)
+        print(f"Analysis completed for user: {uid}")
+        print(f"Prediction Result: {prediction_result}")
 
     except Exception as e:
         print(f"Error processing image: {e}")
