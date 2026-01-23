@@ -93,20 +93,21 @@ class StorageService {
       // 4. 다운로드 URL 가져오기 (토큰 포함으로 캐시 문제 해결)
       final downloadUrl = await snapshot.ref.getDownloadURL();
 
-      // 5. Firestore에 estimate_history 서브컬렉션에 문서 추가
-      await _firestore
-          .collection('users')
-          .doc(uid)
-          .collection('estimate_history')
-          .doc('$fileName.jpg')
-          .set({
-            'createdAt': now.toIso8601String(),
-            'estimateCost': null,
-            'imageUploadUrl': downloadUrl, // 업로드된 실제 URL 저장
-            'imageDamageUrl': null,
-            'imageDamagePartUrl': null,
-            'note': null,
-          });
+      // 5. Firestore에 저장 (사용자 문서가 존재할 때만 estimate_history 서브컬렉션에 추가)
+      final userRef = _firestore.collection('users').doc(uid);
+      final userSnapshot = await userRef.get();
+
+      if (userSnapshot.exists) {
+        await userRef.collection('estimate_history').doc('$fileName.jpg').set({
+          'createdAt': now.toIso8601String(),
+          'estimateCost': null,
+          'imageUploadUrl': downloadUrl, // 업로드된 실제 URL 저장
+          'imageDamageUrl': null,
+          'imageDamagePartUrl': null,
+          'note': null,
+          'status': 'pending', // 기본 상태 추가
+        });
+      }
 
       return downloadUrl;
     } catch (e) {
