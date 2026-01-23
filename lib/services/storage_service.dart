@@ -45,13 +45,16 @@ class StorageService {
       // uid와 날짜 문자열 생성
       final uid = user.uid;
       final now = DateTime.now();
-      final dateString = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+      final dateString =
+          '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
 
       // 카운터 문서 ID
       final counterDocId = '${uid}_${dateString}';
 
       // 트랜잭션으로 카운터 증가
-      final counterRef = _firestore.collection('upload_counters').doc(counterDocId);
+      final counterRef = _firestore
+          .collection('upload_counters')
+          .doc(counterDocId);
       int sequenceNumber = 1;
       await _firestore.runTransaction((transaction) async {
         final snapshot = await transaction.get(counterRef);
@@ -68,8 +71,8 @@ class StorageService {
       // 시퀀스 번호를 두 자리로 포맷
       final sequenceString = sequenceNumber.toString().padLeft(2, '0');
 
-      // 파일 이름 생성: uid_생성일_생성번호
-      final fileName = '${uid}_${dateString}_${sequenceString}';
+      // 파일 이름 생성: uid_생성일_생성번호 (사용자 요청에 따라 타임스탬프 제거)
+      final fileName = '${uid}_${dateString}_$sequenceString';
 
       // Firebase Storage 참조
       final ref = _storage.ref().child('crashed_car_picture/$fileName.jpg');
@@ -88,19 +91,26 @@ class StorageService {
       await ref.putFile(fileToUpload, metadata);
 
       // 4. URL 미리 구성 (API 호출 제거로 속도 개선)
-      final downloadUrl = 'https://firebasestorage.googleapis.com/v0/b/'
+      final downloadUrl =
+          'https://firebasestorage.googleapis.com/v0/b/'
           '${_storage.bucket}/o/crashed_car_picture%2F$fileName.jpg'
           '?alt=media';
 
-      // 5. Firestore에 estimate_history 서브컬렉션에 문서 추가
-      await _firestore.collection('users').doc(uid).collection('estimate_history').doc('$fileName.jpg').set({
-        'createdAt': now.toIso8601String(),
-        'estimateCost': null,
-        'imageUploadUrl': null,
-        'imageDamageUrl': null,
-        'imageDamagePartUrl': null,
-        'note': null,
-      });
+      // 5. Firestore에 저장 (사용자 문서가 존재할 때만 estimate_history 서브컬렉션에 추가)
+      final userRef = _firestore.collection('users').doc(uid);
+      final userSnapshot = await userRef.get();
+
+      if (userSnapshot.exists) {
+        await userRef.collection('estimate_history').doc('$fileName.jpg').set({
+          'createdAt': now.toIso8601String(),
+          'estimateCost': null,
+          'imageUploadUrl': downloadUrl, // 업로드된 이미지 URL 저장
+          'imageDamageUrl': null,
+          'imageDamagePartUrl': null,
+          'note': null,
+          'status': 'pending', // 기본 상태 추가
+        });
+      }
 
       return downloadUrl;
     } catch (e) {
