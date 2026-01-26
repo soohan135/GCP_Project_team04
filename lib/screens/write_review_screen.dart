@@ -80,14 +80,22 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
       final reviewsRef = shopRef.collection('reviews');
 
       await FirebaseFirestore.instance.runTransaction((transaction) async {
-        // 1. 리뷰 추가
-        transaction.set(reviewsRef.doc(), review.toMap());
-
-        // 2. 정비소 정보 업데이트 (평점 및 리뷰 수)
+        // 1. 정비소 정보 업데이트를 위해 먼저 기존 데이터 읽기 (트랜잭션 규칙: 읽기 우선)
         final shopSnap = await transaction.get(shopRef);
+
+        // 2. 리뷰 추가 (쓰기)
+        // 사용자가 여러 번 방문하여 리뷰를 남길 수 있도록 자동 생성 ID를 사용합니다.
+        // 유저 식별을 위해 데이터 필드에 userId(UID)를 포함합니다.
+        final newReviewRef = reviewsRef.doc();
+        transaction.set(newReviewRef, {
+          ...review.toMap(),
+          'userId': user.uid, // 유저 식별을 위한 필드 추가
+        });
+
+        // 3. 정비소 정보 업데이트 (평점 및 리뷰 수)
         if (shopSnap.exists) {
           final data = shopSnap.data()!;
-          final currentRating = (data['rating'] ?? 4.5).toDouble();
+          final currentRating = (data['rating'] ?? 0.0).toDouble();
           final currentCount = (data['reviewCount'] ?? 0) as int;
 
           final newCount = currentCount + 1;

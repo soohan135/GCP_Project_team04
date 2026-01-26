@@ -22,7 +22,7 @@ class ServiceCenter {
     required this.latitude,
     required this.longitude,
     required this.distanceFromUser,
-    this.rating = 4.5,
+    this.rating = 0.0,
     this.isOpen = true,
     this.reviewCount = 0,
     List<Review>? latestReviews,
@@ -44,7 +44,7 @@ class ServiceCenter {
       latitude: geoPoint?.latitude ?? 0.0,
       longitude: geoPoint?.longitude ?? 0.0,
       distanceFromUser: distanceInKm,
-      rating: (data['rating'] ?? 4.5).toDouble(),
+      rating: (data['rating'] ?? 0.0).toDouble(),
       isOpen: data['isOpen'] ?? true,
       reviewCount: data['reviewCount'] ?? 0,
     );
