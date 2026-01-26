@@ -93,11 +93,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     final maxCost = (costNum * 1.2).toInt();
 
                     String format(num n) =>
-                        '₩' +
                         n.toInt().toString().replaceAllMapped(
                           RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"),
                           (Match m) => "${m[1]},",
-                        );
+                        ) +
+                        '원';
 
                     formattedPrice = '${format(minCost)} ~ ${format(maxCost)}';
                   } else {
