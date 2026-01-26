@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:lucide_icons/lucide_icons.dart';
-import '../models/service_center.dart';
 import '../providers/shop_provider.dart';
+import '../widgets/service_center_item.dart';
 
 class NearbyShopsScreen extends StatefulWidget {
   const NearbyShopsScreen({super.key});
@@ -15,6 +14,7 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
   bool _showAll = false;
   static const int _initialShowLimit = 8;
   final ScrollController _scrollController = ScrollController();
+  String? _expandedShopId;
 
   @override
   void dispose() {
@@ -94,7 +94,18 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
                           if (index == shopsToShow.length) {
                             return _buildShowMoreButton();
                           }
-                          return _buildShopItem(context, shopsToShow[index]);
+                          final shop = shopsToShow[index];
+                          return ServiceCenterItem(
+                            shop: shop,
+                            isExpanded: _expandedShopId == shop.id,
+                            onTap: () {
+                              setState(() {
+                                _expandedShopId = _expandedShopId == shop.id
+                                    ? null
+                                    : shop.id;
+                              });
+                            },
+                          );
                         },
                       ),
                     ),
@@ -175,111 +186,6 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildShopItem(BuildContext context, ServiceCenter shop) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: Colors.blueAccent.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(LucideIcons.mapPin, color: Colors.blueAccent),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  shop.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  shop.address,
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(LucideIcons.star, size: 12, color: Colors.amber),
-                    const SizedBox(width: 4),
-                    Text(
-                      shop.rating.toString(),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '리뷰 ${shop.reviewCount}',
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(LucideIcons.star, size: 14, color: Colors.amber),
-                    const SizedBox(width: 4),
-                    Text(
-                      shop.rating.toString(),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Icon(
-                      LucideIcons.navigation,
-                      size: 12,
-                      color: Colors.blueAccent,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${shop.distanceFromUser.toStringAsFixed(1)}km',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.blueAccent,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

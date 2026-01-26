@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/service_center.dart';
+import '../models/review.dart';
 
 class ShopProvider with ChangeNotifier {
   List<ServiceCenter> _shops = [];
@@ -78,7 +79,7 @@ class ShopProvider with ChangeNotifier {
             strictMode: true,
           )
           .listen(
-            (snapshots) {
+            (snapshots) async {
               final List<ServiceCenter> fetchedShops = snapshots
                   .map((shot) {
                     final data = shot.data();
@@ -104,12 +105,35 @@ class ShopProvider with ChangeNotifier {
                   .whereType<ServiceCenter>()
                   .toList();
 
-              // 거리순 정렬 후 최대 20개로 제한
+              // 거리순 정렬 후 최대 40개
               fetchedShops.sort(
                 (a, b) => a.distanceFromUser.compareTo(b.distanceFromUser),
               );
+              final limitedShops = fetchedShops.take(40).toList();
 
-              _shops = fetchedShops.take(40).toList();
+              // 각 정비소의 최신 리뷰 3개씩 가져오기
+              for (int i = 0; i < limitedShops.length; i++) {
+                final shop = limitedShops[i];
+                try {
+                  final reviewsSnap = await FirebaseFirestore.instance
+                      .collection('service_centers')
+                      .doc(shop.id)
+                      .collection('reviews')
+                      .orderBy('createdAt', descending: true)
+                      .limit(3)
+                      .get();
+
+                  final reviews = reviewsSnap.docs
+                      .map((doc) => Review.fromMap(doc.data(), doc.id))
+                      .toList();
+
+                  limitedShops[i] = shop.copyWith(latestReviews: reviews);
+                } catch (e) {
+                  print('Error fetching reviews for ${shop.name}: $e');
+                }
+              }
+
+              _shops = limitedShops;
               _isLoading = false;
               notifyListeners();
             },
