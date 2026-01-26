@@ -1,6 +1,15 @@
 import functions_framework
 from datetime import datetime
 import re
+import os
+import json
+import requests
+from google.cloud import storage
+import google.auth.transport.requests
+import google.oauth2.id_token
+
+# AI 서비스 URL (환경 변수에서 가져옴)
+AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "https://YOUR_AI_SERVICE_URL_HERE")
 
 def parse_filename(filename):
     """
@@ -18,20 +27,53 @@ def parse_filename(filename):
         return parts[0]
     return None
 
-def mock_prediction(bucket, filename):
+def predict_damage(image_path):
     """
-    Mock AI 예측 함수 (Vertex AI 연동 전 단계)
+    외부 AI Cloud Run 서비스에 이미지를 전송하여 분석 결과를 받아옵니다.
+    (인증 토큰 생성 로직 포함)
     """
-    download_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket}/o/crashed_car_picture%2F{filename}?alt=media"
+    if not AI_SERVICE_URL or "YOUR_AI_SERVICE_URL_HERE" in AI_SERVICE_URL:
+        print("Error: AI_SERVICE_URL environment variable is not set correctly.")
+        raise ValueError("AI_SERVICE_URL not configured")
+
+    print(f"Sending image to AI Service: {AI_SERVICE_URL}")
     
-    # 더미 데이터 반환
-    return {
-        "damage": "전면 범퍼 파손 (Scratched Bumper)",
-        "estimatedPrice": "₩250,000 - ₩350,000",
-        "recommendations": ["범퍼 도색", "범퍼 교환 불필요", "기타 흠집 제거"],
-        "imageUrl": download_url,
-        "confidence": "98.5%"
+    # 1. 인증 토큰(ID Token) 생성
+    # Cloud Run을 호출하기 위한 '출입증'을 만듭니다.
+    auth_req = google.auth.transport.requests.Request()
+    try:
+        id_token = google.oauth2.id_token.fetch_id_token(auth_req, AI_SERVICE_URL)
+    except Exception as e:
+        print(f"Warning: Could not fetch ID token. Local emulation or missing permissions? Error: {e}")
+        # 로컬 테스트나 인증이 필요 없는 경우를 위해 None으로 처리하거나 예외를 던질 수 있음
+        # 여기서는 예외를 던져서 명확히 실패하게 함 (Cloud 환경 가정)
+        raise e
+
+    # 헤더에 토큰을 담습니다.
+    headers = {
+        "Authorization": f"Bearer {id_token}"
     }
+    
+    try:
+        with open(image_path, 'rb') as img_file:
+            # 2. 데이터 구성
+            files = {'file': img_file}
+            
+            # 3. 요청 전송 (헤더 포함)
+            response = requests.post(
+                AI_SERVICE_URL, 
+                files=files, 
+                data={'car_model': 'unknown'},
+                headers=headers
+            )
+            
+        response.raise_for_status() 
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error calling AI service: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+             print(f"Server Response: {e.response.text}")
+        raise
 
 @functions_framework.cloud_event
 def analyze_crashed_car(cloud_event):
@@ -53,8 +95,8 @@ def analyze_crashed_car(cloud_event):
         # resource_name format: projects/_/buckets/{bucket}/objects/{name}
         match = re.search(r'projects/_/buckets/(.*?)/objects/(.*)', resource_name)
         if match:
-            bucket = match.group(1)
-            name = match.group(2)
+            bucket_name = match.group(1)
+            file_name = match.group(2)
         else:
             print(f"Error: Could not parse resourceName: {resource_name}")
             return
@@ -64,37 +106,37 @@ def analyze_crashed_car(cloud_event):
     else:
         # Case 2: Direct Storage Trigger (Legacy/Standard)
         print("Processing as Direct Storage event...")
-        bucket = data.get("bucket")
-        name = data.get("name")
+        bucket_name = data.get("bucket")
+        file_name = data.get("name")
         contentType = data.get("contentType", "")
 
     print(f"Event ID: {event_id}")
     print(f"Event Type: {event_type}")
-    print(f"Bucket: {bucket}")
-    print(f"File: {name}")
+    print(f"Bucket: {bucket_name}")
+    print(f"File: {file_name}")
     print(f"Created: {timeCreated}")
     print(f"Content Type: {contentType}")
 
-    if not bucket or not name:
+    if not bucket_name or not file_name:
         print("Error: Bucket or Name not found in event data.")
         return
 
     # 1. 파일 경로 및 이름 검증 ('crashed_car_picture/' 폴더 내의 파일인지 확인)
-    if not name.startswith("crashed_car_picture/"):
-        print(f"Skipping file not in target folder: {name}")
+    if not file_name.startswith("crashed_car_picture/"):
+        print(f"Skipping file not in target folder: {file_name}")
         return
 
-    # 2. 이미지 파일 검증 (Audit Log일 경우 contentType이 부정확할 수 있으므로 확장자 체크 추가)
+    # 2. 이미지 파일 검증
     is_image_type = contentType.startswith("image/")
-    is_image_ext = name.lower().endswith(('.jpg', '.jpeg', '.png'))
+    is_image_ext = file_name.lower().endswith(('.jpg', '.jpeg', '.png'))
     
     if not (is_image_type or is_image_ext):
-        print(f"Skipping non-image file: {name} (Type: {contentType})")
+        print(f"Skipping non-image file: {file_name} (Type: {contentType})")
         return
 
-    # 2. 파일명에서 UID 추출
+    # 3. 파일명에서 UID 추출
     # name은 'crashed_car_picture/user123_20240122.jpg' 형태
-    file_basename = name.split('/')[-1]
+    file_basename = file_name.split('/')[-1]
     uid = parse_filename(file_basename)
 
     if not uid:
@@ -103,16 +145,33 @@ def analyze_crashed_car(cloud_event):
 
     print(f"Detected UID: {uid}")
 
+    storage_client = storage.Client()
+    temp_local_path = f"/tmp/{file_basename}"
+
     try:
-        # 3. AI 추론 (Mock)
-        # 실제 구현시에는 여기서 Vertex AI Endpoint를 호출합니다.
-        prediction_result = mock_prediction(bucket, file_basename)
+        # 4. GCS에서 이미지 다운로드
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(file_name)
+        blob.download_to_filename(temp_local_path)
+        print(f"Downloaded {file_name} to {temp_local_path}")
+
+        # 5. AI 추론 실행 (외부 서비스 호출)
+        prediction_result = predict_damage(temp_local_path)
         
-        # 4. 결과 로그 출력 (Firestore 저장 대신)
+        # 원래 이미지 URL 추가 (앱에서 표시용)
+        # 참고: 이 URL은 공개 권한이 있거나, 앱에서 Signed URL을 생성해야 접근 가능할 수 있음
+        download_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/crashed_car_picture%2F{file_basename}?alt=media"
+        prediction_result['imageUrl'] = download_url
+        
+        # 6. 결과 로그 출력 (추후 Firestore 저장 로직으로 대체 필요)
         print(f"Analysis completed for user: {uid}")
         print(f"Prediction Result: {prediction_result}")
 
     except Exception as e:
         print(f"Error processing image: {e}")
-        # 필요시 에러 로깅을 강화하거나 재시도 로직 추가 가능
         raise e
+    finally:
+        # 임시 파일 삭제
+        if os.path.exists(temp_local_path):
+            os.remove(temp_local_path)
+            print(f"Removed temporary file: {temp_local_path}")
