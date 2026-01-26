@@ -262,7 +262,8 @@ class _HomeScreenState extends State<HomeScreen> {
             'estimatedPrice': _result!['estimatedPrice'],
             'recommendations': _result!['recommendations'],
             'date': DateTime.now().toIso8601String(),
-            if (_imageUrl != null) 'imageUrl': _imageUrl,
+            'imageUrl': _imageUrl,
+            'analyzedImageUrl': _result?['analyzedImageUrl'],
           });
       if (!mounted) return;
       ScaffoldMessenger.of(

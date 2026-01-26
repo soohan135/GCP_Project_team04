@@ -12,6 +12,7 @@ class Estimate {
   final String status;
   final String? imageUrl;
   final List<String> recommendations;
+  final String? realPrice;
 
   Estimate({
     required this.id,
@@ -22,6 +23,7 @@ class Estimate {
     required this.status,
     this.imageUrl,
     required this.recommendations,
+    this.realPrice,
   });
 }
 
@@ -68,9 +70,15 @@ class EstimateProvider with ChangeNotifier {
                 date: data['date'] ?? '알 수 없음',
                 damage: data['damage'] ?? '알 수 없음',
                 price: data['estimatedPrice'] ?? '알 수 없음',
-                status: '저장됨',
-                imageUrl: data['imageUrl'],
-                recommendations: List<String>.from(data['recommendations'] ?? []),
+                status: data['realPrice'] != null ? '수리 완료' : '저장됨',
+                imageUrl:
+                    data['imageUrl'] ??
+                    data['analyzedImageUrl'] ??
+                    data['imageUploadUrl'],
+                recommendations: List<String>.from(
+                  data['recommendations'] ?? [],
+                ),
+                realPrice: data['realPrice'],
               );
             }).toList();
 
@@ -83,6 +91,24 @@ class EstimateProvider with ChangeNotifier {
             notifyListeners();
           },
         );
+  }
+
+  Future<void> updateRealPrice(String estimateId, String realPrice) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('estimates')
+          .doc(estimateId)
+          .update({'realPrice': realPrice});
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
   }
 
   @override

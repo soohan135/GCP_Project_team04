@@ -94,7 +94,7 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
     );
   }
 
-  Widget _buildEstimateItem(BuildContext context, dynamic est) {
+  Widget _buildEstimateItem(BuildContext context, Estimate est) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -134,16 +134,16 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: est.status == '수리완료'
-                        ? Colors.blueAccent.withOpacity(0.1)
+                    color: est.status == '수리 완료'
+                        ? Colors.green.withOpacity(0.1)
                         : Colors.amber.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     est.status,
                     style: TextStyle(
-                      color: est.status == '수리완료'
-                          ? Colors.blueAccent
+                      color: est.status == '수리 완료'
+                          ? Colors.green
                           : Colors.amber[800],
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -206,15 +206,34 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                           fontSize: 18,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        est.price,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blueAccent,
+                      if (est.realPrice != null) ...[
+                        Text(
+                          '예상: ${est.price}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                            decoration: TextDecoration.lineThrough,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 2),
+                        Text(
+                          est.realPrice!,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ] else ...[
+                        Text(
+                          est.price,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueAccent,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
