@@ -10,6 +10,8 @@ class Estimate {
   final String damage;
   final String price;
   final String status;
+  final String? imageUrl;
+  final List<String> recommendations;
 
   Estimate({
     required this.id,
@@ -18,6 +20,8 @@ class Estimate {
     required this.damage,
     required this.price,
     required this.status,
+    this.imageUrl,
+    required this.recommendations,
   });
 }
 
@@ -65,6 +69,8 @@ class EstimateProvider with ChangeNotifier {
                 damage: data['damage'] ?? '알 수 없음',
                 price: data['estimatedPrice'] ?? '알 수 없음',
                 status: '저장됨',
+                imageUrl: data['imageUrl'],
+                recommendations: List<String>.from(data['recommendations'] ?? []),
               );
             }).toList();
 
