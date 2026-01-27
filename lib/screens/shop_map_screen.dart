@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/service_center.dart';
 
 class ShopMapScreen extends StatefulWidget {
@@ -154,11 +155,20 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () {
-                            // 길찾기 기능 구현 (추후)
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('길찾기 기능은 준비 중입니다.')),
-                            );
+                          onPressed: () async {
+                            final Uri url = Uri.parse(
+                                'https://www.google.com/maps/dir/?api=1&destination=${widget.shop.latitude},${widget.shop.longitude}');
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url,
+                                  mode: LaunchMode.externalApplication);
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('지도를 열 수 없습니다.')),
+                                );
+                              }
+                            }
                           },
                           icon: const Icon(Icons.directions),
                           label: const Text("길찾기"),
