@@ -50,17 +50,26 @@ class ServiceCenterItem extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.blueAccent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        LucideIcons.mapPin,
-                        color: Colors.blueAccent,
-                        size: 20,
+                    GestureDetector(
+                      onTap: () {
+                        // TODO: 구글 맵 화면으로 이동하는 로직 추가 예정
+                        debugPrint('${shop.name} 위치 보기 클릭됨');
+                      },
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.blueAccent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.blueAccent.withOpacity(0.2),
+                          ),
+                        ),
+                        child: const Icon(
+                          LucideIcons.map,
+                          color: Colors.blueAccent,
+                          size: 22,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
