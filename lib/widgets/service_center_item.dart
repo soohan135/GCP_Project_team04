@@ -4,6 +4,8 @@ import '../models/service_center.dart';
 import '../models/review.dart';
 import '../screens/write_review_screen.dart';
 
+import '../screens/shop_map_screen.dart';
+
 class ServiceCenterItem extends StatelessWidget {
   final ServiceCenter shop;
   final bool isExpanded;
@@ -50,17 +52,30 @@ class ServiceCenterItem extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.blueAccent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        LucideIcons.mapPin,
-                        color: Colors.blueAccent,
-                        size: 20,
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ShopMapScreen(shop: shop),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.blueAccent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.blueAccent.withOpacity(0.2),
+                          ),
+                        ),
+                        child: const Icon(
+                          LucideIcons.map,
+                          color: Colors.blueAccent,
+                          size: 22,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),

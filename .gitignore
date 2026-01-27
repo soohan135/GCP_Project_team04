@@ -52,3 +52,6 @@ app.*.map.json
 /server/what.txt
 
 
+
+android/secrets.properties
+lib/secrets.dart
