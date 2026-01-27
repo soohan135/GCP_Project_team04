@@ -48,6 +48,7 @@ dependencies:
   geoflutterfire_plus: ^0.0.21
   image: ^4.0.0
   firebase_app_check: ^0.2.2
+  google_maps_flutter: ^2.14.0
 
 dev_dependencies:
   flutter_test:

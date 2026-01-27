@@ -4,6 +4,8 @@ import '../models/service_center.dart';
 import '../models/review.dart';
 import '../screens/write_review_screen.dart';
 
+import '../screens/shop_map_screen.dart';
+
 class ServiceCenterItem extends StatelessWidget {
   final ServiceCenter shop;
   final bool isExpanded;
@@ -52,8 +54,12 @@ class ServiceCenterItem extends StatelessWidget {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        // TODO: 구글 맵 화면으로 이동하는 로직 추가 예정
-                        debugPrint('${shop.name} 위치 보기 클릭됨');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ShopMapScreen(shop: shop),
+                          ),
+                        );
                       },
                       child: Container(
                         width: 50,
