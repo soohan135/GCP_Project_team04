@@ -159,6 +159,7 @@ class _MainLayoutState extends State<MainLayout> {
       return [
         const HomeScreen(),
         const EstimatePreviewScreen(),
+        const ChatScreen(),
         const NearbyShopsScreen(),
         const SettingsScreen(),
       ];
@@ -225,7 +226,7 @@ class _MainLayoutState extends State<MainLayout> {
                         color: Colors.grey,
                       ),
                       onPressed: () =>
-                          setState(() => _currentIndex = isMechanic ? 3 : 3),
+                          setState(() => _currentIndex = isMechanic ? 3 : 4),
                     ),
                   ],
                 ),
@@ -268,7 +269,8 @@ class _MainLayoutState extends State<MainLayout> {
                   : [
                       _buildNavItem(0, '홈', LucideIcons.home),
                       _buildNavItem(1, '견적 미리보기', LucideIcons.fileText),
-                      _buildNavItem(2, '근처 정비소', LucideIcons.mapPin),
+                      _buildNavItem(2, '채팅', LucideIcons.messageCircle),
+                      _buildNavItem(3, '근처 정비소', LucideIcons.mapPin),
                     ],
             ),
           ),
