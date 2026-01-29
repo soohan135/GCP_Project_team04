@@ -62,7 +62,7 @@ class ReceivedRequestsScreen extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final doc = snapshot.data!.docs[index];
                       final data = doc.data() as Map<String, dynamic>;
-                      return _buildRequestCard(context, data);
+                      return _buildRequestCard(context, data, doc.id);
                     },
                   );
                 },
@@ -74,8 +74,14 @@ class ReceivedRequestsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRequestCard(BuildContext context, Map<String, dynamic> data) {
+  Widget _buildRequestCard(
+    BuildContext context,
+    Map<String, dynamic> data,
+    String requestId,
+  ) {
     final theme = Theme.of(context);
+    final status = data['status'] ?? 'pending';
+    final isResponded = status == 'responded';
     final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
     final dateStr = createdAt != null
         ? DateFormat('MM/dd HH:mm').format(createdAt)
@@ -108,9 +114,9 @@ class ReceivedRequestsScreen extends StatelessWidget {
                   color: Colors.blueAccent.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  data['damageType'] ?? '알 수 없음',
-                  style: const TextStyle(
+                child: const Text(
+                  '견적 요청',
+                  style: TextStyle(
                     color: Colors.blueAccent,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -128,13 +134,19 @@ class ReceivedRequestsScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (data['imageUrl'] != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    data['imageUrl'],
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
+                GestureDetector(
+                  onTap: () => _showImageDialog(context, data['imageUrl']),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Hero(
+                      tag: data['imageUrl'],
+                      child: Image.network(
+                        data['imageUrl'],
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                 )
               else
@@ -163,11 +175,14 @@ class ReceivedRequestsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '손상 부위: ${(data['damagedParts'] as List?)?.join(', ') ?? '없음'}',
+                      '요청 사항: ${data['userRequest'] ?? '없음'}',
                       style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 13,
+                        color: Colors.grey.shade800,
+                        fontSize: 14,
+                        height: 1.4,
                       ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -178,21 +193,190 @@ class ReceivedRequestsScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
-                // TODO: Implement sending estimate response
-              },
+              onPressed: isResponded
+                  ? null
+                  : () => _showEstimateInputDialog(context, data, requestId),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
+                backgroundColor: isResponded ? Colors.grey : Colors.blueAccent,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 elevation: 0,
               ),
-              child: const Text('견적 작성하기'),
+              child: Text(isResponded ? '견적 전송 완료' : '견적 작성하기'),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showEstimateInputDialog(
+    BuildContext context,
+    Map<String, dynamic> requestData,
+    String requestId,
+  ) {
+    final priceController = TextEditingController();
+    final durationController = TextEditingController();
+    final descriptionController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('견적 작성'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: priceController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: '수리 비용 (원)',
+                  hintText: '예: 300000',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: durationController,
+                decoration: const InputDecoration(
+                  labelText: '예상 소요 기간',
+                  hintText: '예: 2~3일',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: descriptionController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: '추가 안내 사항',
+                  hintText: '부품 재고 확인 필요 등...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (priceController.text.isEmpty ||
+                  durationController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('비용과 기간을 입력해주세요.')),
+                );
+                return;
+              }
+
+              try {
+                final shopId = appUser.serviceCenterId;
+                final userId = requestData['userId'];
+                final estimateId = requestData['estimateId'];
+
+                if (shopId == null || userId == null || estimateId == null) {
+                  throw Exception('필수 정보가 누락되었습니다.');
+                }
+
+                final batch = FirebaseFirestore.instance.batch();
+
+                // 1. 정비소측 요청 문서 업데이트
+                final requestRef = FirebaseFirestore.instance
+                    .collection('service_centers')
+                    .doc(shopId)
+                    .collection('receive_estimate')
+                    .doc(requestId);
+
+                batch.update(requestRef, {
+                  'status': 'responded',
+                  'offerPrice': priceController.text.trim(),
+                  'offerDuration': durationController.text.trim(),
+                  'offerDescription': descriptionController.text.trim(),
+                  'respondedAt': FieldValue.serverTimestamp(),
+                });
+
+                // 2. 고객측 견적 상세 응답 추가
+                final responseRef = FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(userId)
+                    .collection('estimates')
+                    .doc(estimateId)
+                    .collection('responses')
+                    .doc(shopId);
+
+                batch.set(responseRef, {
+                  'shopId': shopId,
+                  'shopName': appUser.displayName, // 정비소 이름
+                  'price': priceController.text.trim(),
+                  'duration': durationController.text.trim(),
+                  'description': descriptionController.text.trim(),
+                  'createdAt': FieldValue.serverTimestamp(),
+                });
+
+                await batch.commit();
+
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('견적이 성공적으로 전송되었습니다.')),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('전송 실패: $e')));
+              }
+            },
+            child: const Text('보내기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showImageDialog(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.black.withOpacity(0.9),
+              ),
+            ),
+            Hero(
+              tag: imageUrl,
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  imageUrl,
+                  width: MediaQuery.of(context).size.width,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            Positioned(
+              right: 20,
+              top: 40,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
