@@ -27,10 +27,10 @@ def parse_filename(filename):
         return parts[0]
     return None
 
-def predict_damage(image_path):
+def predict_damage(image_source):
     """
     외부 AI Cloud Run 서비스에 이미지를 전송하여 분석 결과를 받아옵니다.
-    (인증 토큰 생성 로직 포함)
+    image_source: 파일 경로(str) 또는 파일 객체(FileStorage 등)
     """
     if not AI_SERVICE_URL or "YOUR_AI_SERVICE_URL_HERE" in AI_SERVICE_URL:
         print("Error: AI_SERVICE_URL environment variable is not set correctly.")
@@ -39,41 +39,52 @@ def predict_damage(image_path):
     print(f"Sending image to AI Service: {AI_SERVICE_URL}")
     
     # 1. 인증 토큰(ID Token) 생성
-    # Cloud Run을 호출하기 위한 '출입증'을 만듭니다.
     auth_req = google.auth.transport.requests.Request()
     try:
         id_token = google.oauth2.id_token.fetch_id_token(auth_req, AI_SERVICE_URL)
     except Exception as e:
         print(f"Warning: Could not fetch ID token. Local emulation or missing permissions? Error: {e}")
-        # 로컬 테스트나 인증이 필요 없는 경우를 위해 None으로 처리하거나 예외를 던질 수 있음
-        # 여기서는 예외를 던져서 명확히 실패하게 함 (Cloud 환경 가정)
         raise e
 
-    # 헤더에 토큰을 담습니다.
     headers = {
         "Authorization": f"Bearer {id_token}"
     }
     
+    file_handle = None
     try:
-        with open(image_path, 'rb') as img_file:
-            # 2. 데이터 구성
-            files = {'file': img_file}
-            
-            # 3. 요청 전송 (헤더 포함)
-            response = requests.post(
-                AI_SERVICE_URL, 
-                files=files, 
-                data={'car_model': 'unknown'},
-                headers=headers
-            )
+        # 2. 데이터 구성 (경로 vs 스트림 분기 처리)
+        files = {}
+        if isinstance(image_source, str):
+            # 문자열이면 파일 경로로 간주 (기존 로직)
+            file_handle = open(image_source, 'rb')
+            files = {'file': file_handle}
+        else:
+            # 파일 객체인 경우 (스트림 중계)
+            # requests에 (filename, fileobj, content_type) 튜플 전달
+            filename = getattr(image_source, 'filename', 'unknown.jpg')
+            content_type = getattr(image_source, 'content_type', 'application/octet-stream')
+            stream = getattr(image_source, 'stream', image_source)
+            files = {'file': (filename, stream, content_type)}
+
+        # 3. 요청 전송
+        response = requests.post(
+            AI_SERVICE_URL, 
+            files=files, 
+            data={'car_model': 'unknown'},
+            headers=headers
+        )
             
         response.raise_for_status() 
         return response.json()
+        
     except requests.exceptions.RequestException as e:
         print(f"Error calling AI service: {e}")
         if hasattr(e, 'response') and e.response is not None:
              print(f"Server Response: {e.response.text}")
         raise
+    finally:
+        if file_handle:
+            file_handle.close()
 
 @functions_framework.cloud_event
 def analyze_crashed_car(cloud_event):
@@ -175,3 +186,48 @@ def analyze_crashed_car(cloud_event):
         if os.path.exists(temp_local_path):
             os.remove(temp_local_path)
             print(f"Removed temporary file: {temp_local_path}")
+
+@functions_framework.http
+def analyze_image_http(request):
+    """
+    Flutter 앱에서 직접 호출 가능한 HTTP 엔드포인트 (Proxy 역할).
+    이미지를 받아서 AI 서비스로 전달하고 결과를 반환합니다.
+    """
+    # 1. CORS 설정 (앱에서 호출 허용)
+    if request.method == 'OPTIONS':
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Max-Age': '3600'
+        }
+        return ('', 204, headers)
+
+    headers = {
+        'Access-Control-Allow-Origin': '*'
+    }
+
+    if request.method != 'POST':
+        return ('Only POST method is allowed', 405, headers)
+
+    # 2. 파일 수신
+    if 'file' not in request.files:
+        return ('No file part in the request', 400, headers)
+    
+    file = request.files['file']
+    if not file.filename:
+        return ('No selected file', 400, headers)
+
+    try:
+        # 3. AI 서비스 호출 (스트림 중계)
+        # 파일을 저장하지 않고 바로 predict_damage로 전달합니다.
+        print(f"Streaming file {file.filename} to AI service...")
+        prediction_result = predict_damage(file)
+        
+        print(f"AI Analysis Result: {prediction_result}")
+        
+        return (json.dumps(prediction_result), 200, headers)
+
+    except Exception as e:
+        print(f"Error in HTTP handler: {e}")
+        return (f"Internal Server Error: {str(e)}", 500, headers)

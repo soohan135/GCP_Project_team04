@@ -4,11 +4,16 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class StorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // TODO: Replace with your actual AI Service URL
+  static const String _aiServiceUrl = 'https://analyze-crashed-car-2-zujfj3v5ta-du.a.run.app';
 
   /// 이미지 압축 (파일 크기 50-70% 감소)
   Future<File?> _compressImage(XFile image) async {
@@ -26,6 +31,38 @@ class StorageService {
       return compressed;
     } catch (e) {
       print('Image compression error: $e');
+      return null;
+    }
+  }
+
+  /// AI 서비스에 이미지 업로드 및 분석 요청
+  Future<Map<String, dynamic>?> _uploadToAiService(File imageFile) async {
+    try {
+      if (_aiServiceUrl.contains('YOUR_AI_SERVICE_URL_HERE')) {
+        print('AI Service URL is not configured.');
+        return null;
+      }
+
+      final request = http.MultipartRequest('POST', Uri.parse(_aiServiceUrl));
+      request.files
+          .add(await http.MultipartFile.fromPath('file', imageFile.path));
+      request.fields['car_model'] = 'unknown';
+      // 필요한 헤더 추가 (예: Authorization)
+      // request.headers['Authorization'] = 'Bearer YOUR_TOKEN';
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        // UTF-8 디코딩을 명시적으로 처리
+        return jsonDecode(utf8.decode(response.bodyBytes))
+            as Map<String, dynamic>;
+      } else {
+        print('AI Service Error: ${response.statusCode} ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Error calling AI service: $e');
       return null;
     }
   }
@@ -87,9 +124,33 @@ class StorageService {
         cacheControl: 'public, max-age=2592000', // 30일 캐싱
       );
 
-      // 3. 파일 업로드
-      final TaskSnapshot uploadTask = await ref.putFile(fileToUpload, metadata);
-      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      // 3. 병렬 실행: Storage 업로드 & AI 분석 요청
+      final results = await Future.wait([
+        // Task 1: Upload to Storage and get URL
+        ref.putFile(fileToUpload, metadata).then((task) => task.ref.getDownloadURL()),
+        // Task 2: Upload to AI Service
+        _uploadToAiService(fileToUpload),
+      ]);
+
+      final downloadUrl = results[0] as String;
+      final aiResult = results[1] as Map<String, dynamic>?;
+
+      // 4. Firestore 데이터 준비
+      final Map<String, dynamic> firestoreData = {
+        'createdAt': FieldValue.serverTimestamp(),
+        'estimateCost': null,
+        'imageUploadUrl': downloadUrl,
+        'imageDamageUrl': null,
+        'imageDamagePartUrl': null,
+        'note': null,
+      };
+
+      // AI 결과가 있으면 병합
+      if (aiResult != null) {
+        firestoreData.addAll(aiResult);
+        // AI 결과에 따라 imageDamageUrl 등을 매핑해야 한다면 여기서 처리
+        // 예: firestoreData['imageDamageUrl'] = aiResult['analyzed_image_url'];
+      }
 
       // 5. Firestore에 estimate_history 서브컬렉션에 문서 추가
       await _firestore
@@ -97,14 +158,7 @@ class StorageService {
           .doc(uid)
           .collection('estimate_history')
           .doc('$fileName.jpg')
-          .set({
-            'createdAt': FieldValue.serverTimestamp(),
-            'estimateCost': null,
-            'imageUploadUrl': downloadUrl,
-            'imageDamageUrl': null,
-            'imageDamagePartUrl': null,
-            'note': null,
-          });
+          .set(firestoreData);
 
       return downloadUrl;
     } catch (e) {
