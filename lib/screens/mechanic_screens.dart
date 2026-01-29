@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/app_user.dart';
 import '../models/review.dart';
 import 'package:intl/intl.dart';
+import '../widgets/mascot_widget.dart';
+import '../widgets/custom_search_bar.dart';
 
 class ReceivedRequestsScreen extends StatelessWidget {
   final AppUser appUser;
@@ -19,56 +21,86 @@ class ReceivedRequestsScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '견적 요청 현황',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+      backgroundColor: const Color(0xFFFFF7ED), // Peach/Orange tint background
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Center(
+                child: MascotWidget(
+                  type: MascotType.center,
+                  message: '준비 완료! 시동 걸어볼까요?',
+                  expression: MascotExpression.happy,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '새로 들어온 요청들을 확인하고 견적을 보내보세요.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('service_centers')
-                    .doc(shopId)
-                    .collection('receive_estimate')
-                    .orderBy('createdAt', descending: true)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+              const SizedBox(height: 16),
+              Center(
+                child: Text(
+                  '스마트한 차량 진단',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueGrey[800],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Center(
+                child: Text(
+                  '새로 들어온 요청들을 확인하고 견적을 보내보세요.',
+                  style: TextStyle(color: Colors.blueGrey, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const CustomSearchBar(
+                backgroundColor: Colors.white,
+                borderColor: Color(0xFFFFEDD5), // brand-100
+              ),
+              const SizedBox(height: 24),
+              Text(
+                '견적 요청 현황',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange.shade800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('service_centers')
+                      .doc(shopId)
+                      .collection('receive_estimate')
+                      .orderBy('createdAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return _buildEmptyState(
-                      icon: LucideIcons.inbox,
-                      title: '받은 요청이 없습니다.',
-                      subtitle: '고객님이 보내신 견적 요청이 여기에 표시됩니다.',
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return _buildEmptyState(
+                        icon: LucideIcons.inbox,
+                        title: '받은 요청이 없습니다.',
+                        subtitle: '고객님이 보내신 견적 요청이 여기에 표시됩니다.',
+                      );
+                    }
+
+                    return ListView.builder(
+                      itemCount: snapshot.data!.docs.length,
+                      itemBuilder: (context, index) {
+                        final doc = snapshot.data!.docs[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        return _buildRequestCard(context, data, doc.id);
+                      },
                     );
-                  }
-
-                  return ListView.builder(
-                    itemCount: snapshot.data!.docs.length,
-                    itemBuilder: (context, index) {
-                      final doc = snapshot.data!.docs[index];
-                      final data = doc.data() as Map<String, dynamic>;
-                      return _buildRequestCard(context, data, doc.id);
-                    },
-                  );
-                },
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -197,10 +229,12 @@ class ReceivedRequestsScreen extends StatelessWidget {
                   ? null
                   : () => _showEstimateInputDialog(context, data, requestId),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isResponded ? Colors.grey : Colors.blueAccent,
+                backgroundColor: isResponded
+                    ? Colors.grey
+                    : Colors.orange.shade600,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 0,
               ),
@@ -555,23 +589,34 @@ class ReviewManagementScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '리뷰 관리',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+      backgroundColor: const Color(0xFFFFF7ED),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Center(
+                child: MascotWidget(
+                  type: MascotType.center,
+                  message: '사장님, 좋은 리뷰가 달렸을까요?',
+                  expression: MascotExpression.happy,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '정비소에 등록된 고객님들의 소중한 리뷰입니다.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 16),
+              Text(
+                '리뷰 관리',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange.shade800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '정비소에 등록된 고객님들의 소중한 리뷰입니다.',
+                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.blueGrey),
+              ),
+              const SizedBox(height: 24),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -636,12 +681,12 @@ class ReviewManagementScreen extends StatelessWidget {
           Row(
             children: [
               CircleAvatar(
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                backgroundColor: Colors.orange.withOpacity(0.1),
                 radius: 18,
                 child: Text(
                   review.userName.isNotEmpty ? review.userName[0] : '?',
                   style: TextStyle(
-                    color: theme.colorScheme.primary,
+                    color: Colors.orange.shade800,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
@@ -741,23 +786,34 @@ class ChatScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '채팅 상담',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+      backgroundColor: const Color(0xFFFFF7ED),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Center(
+                child: MascotWidget(
+                  type: MascotType.center,
+                  message: '실시간으로 소통해보세요!',
+                  expression: MascotExpression.thinking,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '고객님들과 실시간으로 소통이 가능합니다.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const Expanded(
+              const SizedBox(height: 16),
+              Text(
+                '채팅 상담',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange.shade800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '고객님들과 실시간으로 소통이 가능합니다.',
+                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.blueGrey),
+              ),
+              const Expanded(
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
