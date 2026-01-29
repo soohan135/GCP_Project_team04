@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
+import '../services/chat_service.dart';
+import 'chat_detail_screen.dart';
 
 class ShopResponsesScreen extends StatefulWidget {
   const ShopResponsesScreen({super.key});
@@ -316,8 +318,48 @@ class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () {
-                            // TODO: 상담하기 로직 (채팅 연결 등)
+                          onPressed: () async {
+                            final shopId = data['shopId'];
+                            final shopName = data['shopName'] ?? '정비소';
+                            final estimateId = data['estimateId'];
+
+                            if (shopId == null) return;
+
+                            try {
+                              // 로딩 표시
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+
+                              final roomId = await ChatService()
+                                  .getOrCreateChatRoom(
+                                    shopId,
+                                    estimateId: estimateId,
+                                  );
+
+                              if (!context.mounted) return;
+                              Navigator.pop(context); // 로딩 닫기
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatDetailScreen(
+                                    roomId: roomId,
+                                    otherUserName: shopName,
+                                  ),
+                                ),
+                              );
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              Navigator.pop(context); // 로딩 닫기
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('채팅방 연결 실패: $e')),
+                              );
+                            }
                           },
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.blueAccent),

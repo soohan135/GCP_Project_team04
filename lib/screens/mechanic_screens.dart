@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/app_user.dart';
 import '../models/review.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/chat_service.dart';
+import 'chat_detail_screen.dart';
 
 class ReceivedRequestsScreen extends StatelessWidget {
   final AppUser appUser;
@@ -735,57 +738,207 @@ class ReviewManagementScreen extends StatelessWidget {
 }
 
 class ChatScreen extends StatelessWidget {
-  const ChatScreen({super.key});
+  final bool isMechanic;
+  final String? shopId;
+  const ChatScreen({super.key, this.isMechanic = false, this.shopId});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final effectiveCurrentId = isMechanic
+        ? (shopId ?? currentUserId)
+        : currentUserId;
+
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '채팅 상담',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '고객님들과 실시간으로 소통이 가능합니다.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      LucideIcons.messageCircle,
-                      size: 64,
-                      color: Colors.green,
-                    ),
-                    SizedBox(height: 24),
-                    Text(
-                      '진행 중인 채팅이 없습니다.',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      '고객님과 이력을 통해 소통해보세요.',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '채팅 상담',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  isMechanic
+                      ? '고객님들과 실시간으로 소통이 가능합니다.'
+                      : '정비소와 실시간으로 소통이 가능합니다.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: ChatService().getChatRooms(userId: effectiveCurrentId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                final rooms = snapshot.data!.docs;
+
+                return ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  itemCount: rooms.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final roomData =
+                        rooms[index].data() as Map<String, dynamic>;
+                    final roomId = rooms[index].id;
+                    final participants = List<String>.from(
+                      roomData['participants'] ?? [],
+                    );
+                    final otherUserId = participants.firstWhere(
+                      (id) => id != effectiveCurrentId,
+                      orElse: () => '',
+                    );
+
+                    return FutureBuilder<String>(
+                      future: _fetchUserName(otherUserId),
+                      builder: (context, nameSnapshot) {
+                        final otherUserName = nameSnapshot.data ?? '로딩 중...';
+                        final lastMessage = roomData['lastMessage'] ?? '';
+                        final lastTime =
+                            roomData['lastMessageAt'] as Timestamp?;
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 0,
+                          ),
+                          leading: CircleAvatar(
+                            backgroundColor: isMechanic
+                                ? Colors.blueAccent.withOpacity(0.1)
+                                : Colors.orangeAccent.withOpacity(0.1),
+                            child: Icon(
+                              isMechanic
+                                  ? LucideIcons.user
+                                  : LucideIcons.warehouse,
+                              color: isMechanic
+                                  ? Colors.blueAccent
+                                  : Colors.orangeAccent,
+                            ),
+                          ),
+                          title: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                otherUserName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              if (lastTime != null)
+                                Text(
+                                  _formatTime(lastTime.toDate()),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          subtitle: Text(
+                            lastMessage.isNotEmpty
+                                ? lastMessage
+                                : '대화 내용이 없습니다.',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatDetailScreen(
+                                  roomId: roomId,
+                                  otherUserName: otherUserName,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<String> _fetchUserName(String uid) async {
+    if (uid.isEmpty) return '알 수 없음';
+
+    // 1. 유저 컬렉션에서 먼저 확인
+    final userSnap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+    if (userSnap.exists) {
+      return userSnap.data()?['displayName'] ?? '사용자';
+    }
+
+    // 2. 없으면 정비소 컬렉션에서 확인
+    final shopSnap = await FirebaseFirestore.instance
+        .collection('service_centers')
+        .doc(uid)
+        .get();
+    if (shopSnap.exists) {
+      return shopSnap.data()?['name'] ?? '정비소';
+    }
+
+    return '알 수 없음';
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+    if (difference.inDays == 0) {
+      return DateFormat('HH:mm').format(time);
+    } else if (difference.inDays < 7) {
+      return DateFormat('E').format(time);
+    } else {
+      return DateFormat('MM/dd').format(time);
+    }
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(LucideIcons.messageCircle, size: 64, color: Colors.green),
+          const SizedBox(height: 24),
+          const Text(
+            '진행 중인 채팅이 없습니다.',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isMechanic ? '받은 요청 이력을 통해 소통해보세요.' : '정비소 응답 이력을 통해 소통해보세요.',
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ],
       ),
     );
   }

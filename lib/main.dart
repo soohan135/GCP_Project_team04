@@ -155,7 +155,7 @@ class _MainLayoutState extends State<MainLayout> {
       return [
         ReceivedRequestsScreen(appUser: widget.appUser),
         ReviewManagementScreen(appUser: widget.appUser),
-        const ChatScreen(),
+        ChatScreen(isMechanic: true, shopId: widget.appUser.serviceCenterId),
         const SettingsScreen(),
       ];
     } else {
@@ -163,7 +163,7 @@ class _MainLayoutState extends State<MainLayout> {
         const HomeScreen(),
         const EstimatePreviewScreen(),
         const ShopResponsesScreen(),
-        const ChatScreen(),
+        const ChatScreen(isMechanic: false),
         const NearbyShopsScreen(),
         const SettingsScreen(),
       ];
