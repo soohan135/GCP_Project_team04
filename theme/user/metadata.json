@@ -1,0 +1,7 @@
+{
+  "name": "CarFix Cloud",
+  "description": "An AI-powered car repair estimation service with a cute, airy sky theme.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

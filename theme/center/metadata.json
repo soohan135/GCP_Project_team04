@@ -1,0 +1,7 @@
+{
+  "name": "CarFix Bolt",
+  "description": "An AI-powered car repair estimation service with a warm, energetic orange theme.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
