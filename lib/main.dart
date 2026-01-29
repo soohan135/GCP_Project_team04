@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'providers/theme_provider.dart';
 import 'providers/shop_provider.dart';
 import 'providers/estimate_provider.dart';
@@ -20,9 +21,11 @@ import 'widgets/custom_search_bar.dart';
 import 'models/app_user.dart';
 import 'screens/role_selection_screen.dart';
 import 'screens/mechanic_screens.dart';
+import 'screens/shop_responses_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ko_KR', null);
   // Initialize Firebase (assumes google-services.json / GoogleService-Info.plist are present)
   await Firebase.initializeApp();
 
@@ -159,6 +162,7 @@ class _MainLayoutState extends State<MainLayout> {
       return [
         const HomeScreen(),
         const EstimatePreviewScreen(),
+        const ShopResponsesScreen(),
         const ChatScreen(),
         const NearbyShopsScreen(),
         const SettingsScreen(),
@@ -226,7 +230,7 @@ class _MainLayoutState extends State<MainLayout> {
                         color: Colors.grey,
                       ),
                       onPressed: () =>
-                          setState(() => _currentIndex = isMechanic ? 3 : 4),
+                          setState(() => _currentIndex = isMechanic ? 3 : 5),
                     ),
                   ],
                 ),
@@ -269,8 +273,9 @@ class _MainLayoutState extends State<MainLayout> {
                   : [
                       _buildNavItem(0, '홈', LucideIcons.home),
                       _buildNavItem(1, '견적 미리보기', LucideIcons.fileText),
-                      _buildNavItem(2, '채팅', LucideIcons.messageCircle),
-                      _buildNavItem(3, '근처 정비소', LucideIcons.mapPin),
+                      _buildNavItem(2, '정비소 응답', LucideIcons.clipboardList),
+                      _buildNavItem(3, '채팅', LucideIcons.messageCircle),
+                      _buildNavItem(4, '근처 정비소', LucideIcons.mapPin),
                     ],
             ),
           ),

@@ -220,120 +220,257 @@ class ReceivedRequestsScreen extends StatelessWidget {
     final priceController = TextEditingController();
     final durationController = TextEditingController();
     final descriptionController = TextEditingController();
+    List<DateTime> selectedDates = [];
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('견적 작성'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: priceController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: '수리 비용 (원)',
-                  hintText: '예: 300000',
-                ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('견적 작성'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: priceController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '수리 비용 (원)',
+                      hintText: '예: 300000',
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    '수리가능 일자',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueAccent,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (selectedDates.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Column(
+                        children: selectedDates.asMap().entries.map((entry) {
+                          int idx = entry.key;
+                          DateTime date = entry.value;
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blueAccent.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.blueAccent.withOpacity(0.2),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  LucideIcons.calendar,
+                                  size: 16,
+                                  color: Colors.blueAccent,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    DateFormat(
+                                      'yyyy년 MM월 dd일 (EE)',
+                                      'ko_KR',
+                                    ).format(date),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () {
+                                    setDialogState(() {
+                                      selectedDates.removeAt(idx);
+                                    });
+                                  },
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 18,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  TextButton.icon(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now().add(
+                          const Duration(days: 3),
+                        ),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.light(
+                                primary: Colors.blueAccent,
+                                onPrimary: Colors.white,
+                                onSurface: Colors.black,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setDialogState(() {
+                          if (!selectedDates.any(
+                            (d) =>
+                                d.year == picked.year &&
+                                d.month == picked.month &&
+                                d.day == picked.day,
+                          )) {
+                            selectedDates.add(picked);
+                            selectedDates.sort();
+                          }
+                        });
+                      }
+                    },
+                    icon: const Icon(LucideIcons.plusCircle, size: 18),
+                    label: const Text('일자 추가하기'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.blueAccent,
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: durationController,
+                    decoration: const InputDecoration(
+                      labelText: '예상 소요시간',
+                      hintText: '예: 2~3일',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: descriptionController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: '추가 안내 사항',
+                      hintText: '부품 재고 확인 필요 등...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: durationController,
-                decoration: const InputDecoration(
-                  labelText: '예상 소요 기간',
-                  hintText: '예: 2~3일',
-                ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('취소'),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descriptionController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: '추가 안내 사항',
-                  hintText: '부품 재고 확인 필요 등...',
-                  border: OutlineInputBorder(),
-                ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (priceController.text.isEmpty ||
+                      durationController.text.isEmpty ||
+                      selectedDates.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('비용, 예상 소요시간, 수리가능 일자를 모두 입력해주세요.'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  try {
+                    final shopId = appUser.serviceCenterId;
+                    final userId = requestData['userId'];
+                    final estimateId = requestData['estimateId'];
+
+                    if (shopId == null ||
+                        userId == null ||
+                        estimateId == null) {
+                      throw Exception('필수 정보가 누락되었습니다.');
+                    }
+
+                    // 정비소 정보(이름, 주소) 가져오기
+                    final shopSnap = await FirebaseFirestore.instance
+                        .collection('service_centers')
+                        .doc(shopId)
+                        .get();
+
+                    final shopData = shopSnap.data();
+                    final shopName =
+                        shopData?['name'] ?? appUser.displayName ?? '정비소';
+                    final shopAddress = shopData?['address'] ?? '주소 정보 없음';
+
+                    final batch = FirebaseFirestore.instance.batch();
+
+                    // 1. 정비소측 요청 문서 업데이트
+                    final requestRef = FirebaseFirestore.instance
+                        .collection('service_centers')
+                        .doc(shopId)
+                        .collection('receive_estimate')
+                        .doc(requestId);
+
+                    batch.update(requestRef, {
+                      'status': 'responded',
+                      'offerPrice': priceController.text.trim(),
+                      'offerDuration': durationController.text.trim(),
+                      'repairCompletionDate': selectedDates.first,
+                      'repairCompletionDates': selectedDates,
+                      'offerDescription': descriptionController.text.trim(),
+                      'respondedAt': FieldValue.serverTimestamp(),
+                    });
+
+                    // 2. 고객측 유저 문서 하위 response_estimate 서브컬렉션에 저장
+                    // (일관성을 위해 shopId와 estimateId를 조합한 ID 사용)
+                    final responseRef = FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(userId)
+                        .collection('response_estimate')
+                        .doc('${shopId}_$estimateId');
+
+                    batch.set(responseRef, {
+                      'estimateId': estimateId,
+                      'shopId': shopId,
+                      'shopName': shopName,
+                      'shopAddress': shopAddress, // 정비소 위치
+                      'price': priceController.text.trim(), // 견적 금액
+                      'duration': durationController.text.trim(), // 예상 수리기간
+                      'repairCompletionDates': selectedDates, // 수리가능 날짜 (리스트)
+                      'description': descriptionController.text.trim(), // 세부사항
+                      'createdAt': FieldValue.serverTimestamp(),
+                    });
+
+                    await batch.commit();
+
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('견적이 성공적으로 전송되었습니다.')),
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('전송 실패: $e')));
+                  }
+                },
+                child: const Text('보내기'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (priceController.text.isEmpty ||
-                  durationController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('비용과 기간을 입력해주세요.')),
-                );
-                return;
-              }
-
-              try {
-                final shopId = appUser.serviceCenterId;
-                final userId = requestData['userId'];
-                final estimateId = requestData['estimateId'];
-
-                if (shopId == null || userId == null || estimateId == null) {
-                  throw Exception('필수 정보가 누락되었습니다.');
-                }
-
-                final batch = FirebaseFirestore.instance.batch();
-
-                // 1. 정비소측 요청 문서 업데이트
-                final requestRef = FirebaseFirestore.instance
-                    .collection('service_centers')
-                    .doc(shopId)
-                    .collection('receive_estimate')
-                    .doc(requestId);
-
-                batch.update(requestRef, {
-                  'status': 'responded',
-                  'offerPrice': priceController.text.trim(),
-                  'offerDuration': durationController.text.trim(),
-                  'offerDescription': descriptionController.text.trim(),
-                  'respondedAt': FieldValue.serverTimestamp(),
-                });
-
-                // 2. 고객측 견적 상세 응답 추가
-                final responseRef = FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(userId)
-                    .collection('estimates')
-                    .doc(estimateId)
-                    .collection('responses')
-                    .doc(shopId);
-
-                batch.set(responseRef, {
-                  'shopId': shopId,
-                  'shopName': appUser.displayName, // 정비소 이름
-                  'price': priceController.text.trim(),
-                  'duration': durationController.text.trim(),
-                  'description': descriptionController.text.trim(),
-                  'createdAt': FieldValue.serverTimestamp(),
-                });
-
-                await batch.commit();
-
-                if (!context.mounted) return;
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('견적이 성공적으로 전송되었습니다.')),
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('전송 실패: $e')));
-              }
-            },
-            child: const Text('보내기'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
