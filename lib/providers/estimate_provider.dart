@@ -114,6 +114,7 @@ class EstimateProvider with ChangeNotifier {
   Future<void> sendEstimateToNearbyShops({
     required Estimate estimate,
     required List<dynamic> shops,
+    String? userRequest,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('로그인이 필요합니다.');
@@ -139,6 +140,7 @@ class EstimateProvider with ChangeNotifier {
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'pending',
         'estimateId': estimate.id,
+        'userRequest': userRequest,
       });
     }
 

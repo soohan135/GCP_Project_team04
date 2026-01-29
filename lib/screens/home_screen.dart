@@ -4,7 +4,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import '../services/storage_service.dart';
+import '../providers/shop_provider.dart';
+import '../providers/estimate_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -215,8 +218,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _saveEstimate() async {
-    if (_result == null) return;
+  Future<String?> _saveEstimate() async {
+    if (_result == null) return null;
 
     final TextEditingController titleController = TextEditingController();
 
@@ -248,11 +251,11 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
 
-    if (title == null || title.isEmpty) return;
+    if (title == null || title.isEmpty) return null;
 
     try {
       String uid = FirebaseAuth.instance.currentUser!.uid;
-      await FirebaseFirestore.instance
+      final docRef = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
           .collection('estimates')
@@ -265,16 +268,126 @@ class _HomeScreenState extends State<HomeScreen> {
             'imageUrl': _imageUrl,
             'analyzedImageUrl': _result?['analyzedImageUrl'],
           });
-      if (!mounted) return;
+      if (!mounted) return docRef.id;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('견적이 저장되었습니다.')));
+      return docRef.id;
+    } catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
+      return null;
+    }
+  }
+
+  Future<void> _handleRequestToShops() async {
+    // 1. 견적이 이미 저장되었는지 확인 (이 화면에서는 _imageUrl이 있고 분석 완료 상태임)
+    // 하지만 Firestore ID가 필요하므로 저장을 먼저 유도하거나 저장된 ID를 관리해야 함.
+    // 간단히 하기 위해, 요청 시점에 저장을 먼저 진행함.
+
+    String? estimateId;
+
+    // 이미 저장된 경우를 체크할 변수가 현재는 없으므로 일단 저장을 호출하거나,
+    // 저장 성공 후 얻은 ID를 사용해야 함.
+    estimateId = await _saveEstimate();
+
+    if (estimateId == null) return;
+
+    if (!mounted) return;
+
+    // 2. 요청 사항 입력 다이얼로그 띄우기
+    final String? userRequest = await _showRequestDialog();
+    if (userRequest == null) return;
+
+    if (!mounted) return;
+
+    // 3. 정비소 정보 가져오기 (ShopProvider 사용)
+    final shopProvider = context.read<ShopProvider>();
+    final estimateProvider = context.read<EstimateProvider>();
+
+    if (shopProvider.shops.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('주변 10km 이내에 정비소가 없습니다.')));
+      return;
+    }
+
+    try {
+      // 로딩 표시
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('주변 정비소에 견적 요청을 전송 중입니다...')),
+      );
+
+      // Estimate 객체 생성 (Provider의 sendEstimateToNearbyShops Expects Estimate)
+      final estimate = Estimate(
+        id: estimateId,
+        title: _result!['damage'], // 임시
+        date: DateTime.now().toIso8601String(),
+        damage: _result!['damage'],
+        price: _result!['estimatedPrice'],
+        status: '저장됨',
+        recommendations: List<String>.from(_result!['recommendations']),
+        imageUrl: _imageUrl ?? _result?['analyzedImageUrl'],
+      );
+
+      await estimateProvider.sendEstimateToNearbyShops(
+        estimate: estimate,
+        shops: shopProvider.shops,
+        userRequest: userRequest,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('주변 정비소에 수리 요청을 성공적으로 보냈습니다.')),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
+      ).showSnackBar(SnackBar(content: Text('요청 전송 실패: $e')));
     }
+  }
+
+  Future<String?> _showRequestDialog() async {
+    final TextEditingController requestController = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('정비소 견적 요청'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('정비소에 전달할 요청 사항을 입력해주세요.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: requestController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: '예: 범퍼 도색 비용 포함인가요? 대차 가능한가요?',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () =>
+                  Navigator.pop(context, requestController.text.trim()),
+              child: const Text('보내기'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -514,10 +627,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () => setState(() => _result = null),
+                        onPressed: _handleRequestToShops,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blueAccent,
                           foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          '근처 정비소에 견적 요청하기',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => setState(() => _result = null),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.blueAccent),
+                          foregroundColor: Colors.blueAccent,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
