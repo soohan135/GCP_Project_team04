@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:gcp_project_team_04/services/chat_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
+import 'chat_detail_screen.dart';
 
 class ShopResponsesScreen extends StatefulWidget {
   const ShopResponsesScreen({super.key});
@@ -14,6 +16,56 @@ class ShopResponsesScreen extends StatefulWidget {
 class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
   String? _expandedCardId;
   final Map<String, DateTime> _selectedDates = {};
+
+  Future<void> _startChat(BuildContext context, String shopId, String shopName, String estimateId) async {
+    final chatService = ChatService();
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (currentUserId == null) {
+      // Handle user not logged in
+      return;
+    }
+
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('serviceCenterId', isEqualTo: shopId)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final mechanic = querySnapshot.docs.first;
+        final mechanicId = mechanic.id;
+
+        final roomId = await chatService.getOrCreateChatRoom(
+          mechanicId,
+          estimateId: estimateId,
+          shopName: shopName,
+          consumerId: currentUserId,
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatDetailScreen(
+              roomId: roomId,
+              otherUserName: shopName,
+            ),
+          ),
+        );
+      } else {
+        // Handle no mechanic found
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('해당 정비소에 연결된 정비사가 없습니다.')),
+        );
+      }
+    } catch (e) {
+      // Handle error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('채팅 시작에 실패했습니다: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -317,7 +369,9 @@ class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () {
-                            // TODO: 상담하기 로직 (채팅 연결 등)
+                            if (data['shopId'] != null && data['estimateId'] != null) {
+                              _startChat(context, data['shopId'], data['shopName'] ?? '정비소', data['estimateId']);
+                            }
                           },
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.blueAccent),

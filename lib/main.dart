@@ -22,6 +22,7 @@ import 'models/app_user.dart';
 import 'screens/role_selection_screen.dart';
 import 'screens/mechanic_screens.dart';
 import 'screens/shop_responses_screen.dart';
+import 'screens/chat_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

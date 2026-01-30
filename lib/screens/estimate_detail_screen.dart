@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../providers/estimate_provider.dart';
 import '../providers/shop_provider.dart';
+import 'select_shops_screen.dart';
 
 class EstimateDetailScreen extends StatelessWidget {
   final Estimate estimate;
@@ -221,43 +222,13 @@ class EstimateDetailScreen extends StatelessWidget {
     );
   }
 
-  void _sendRequestToShops(BuildContext context) async {
-    final shopProvider = context.read<ShopProvider>();
-    final estimateProvider = context.read<EstimateProvider>();
-
-    if (shopProvider.shops.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('주변 정비소 정보가 없습니다. "주변 정비소" 탭에서 정비소를 탐색해 주세요.'),
-        ),
-      );
-      return;
-    }
-
-    try {
-      // 로딩 표시
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('주변 정비소에 수리 요청을 전송 중입니다...')),
-      );
-
-      await estimateProvider.sendEstimateToNearbyShops(
-        estimate: estimate,
-        shops: shopProvider.shops,
-      );
-
-      // 성공 메시지
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).clearSnackBars();
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('주변 10개 정비소에 수리 요청을 성공적으로 보냈습니다.')),
-      );
-    } catch (e) {
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('요청 전송 중 오류가 발생했습니다: $e')));
-    }
+  void _sendRequestToShops(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SelectShopsScreen(estimate: estimate),
+      ),
+    );
   }
 
   void _showRepairCompleteDialog(BuildContext ctx) {
@@ -356,3 +327,4 @@ class EstimateDetailScreen extends StatelessWidget {
     );
   }
 }
+
