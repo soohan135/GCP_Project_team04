@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/app_user.dart';
 import '../models/review.dart';
 import 'package:intl/intl.dart';
+import '../services/schedule_service.dart';
 
 class ReceivedRequestsScreen extends StatelessWidget {
   final AppUser appUser;
@@ -111,13 +112,17 @@ class ReceivedRequestsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.blueAccent.withOpacity(0.1),
+                  color: status == 'reserved'
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.blueAccent.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  '견적 요청',
+                child: Text(
+                  status == 'reserved' ? '예약 확정' : '견적 요청',
                   style: TextStyle(
-                    color: Colors.blueAccent,
+                    color: status == 'reserved'
+                        ? Colors.green
+                        : Colors.blueAccent,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -184,6 +189,36 @@ class ReceivedRequestsScreen extends StatelessWidget {
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (status == 'reserved' &&
+                        data['confirmedDate'] != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              LucideIcons.calendarCheck,
+                              size: 14,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '방문 예정: ${DateFormat('yyyy.MM.dd').format((data['confirmedDate'] as Timestamp).toDate())}',
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -204,7 +239,11 @@ class ReceivedRequestsScreen extends StatelessWidget {
                 ),
                 elevation: 0,
               ),
-              child: Text(isResponded ? '견적 전송 완료' : '견적 작성하기'),
+              child: Text(
+                status == 'reserved'
+                    ? '예약 확정됨'
+                    : (isResponded ? '견적 전송 완료' : '견적 작성하기'),
+              ),
             ),
           ),
         ],
@@ -454,10 +493,28 @@ class ReceivedRequestsScreen extends StatelessWidget {
 
                     await batch.commit();
 
+                    // Google Calendar API 연동 대신 Firestore 일정에 추가
+                    try {
+                      final scheduleService = ScheduleService();
+                      for (final date in selectedDates) {
+                        await scheduleService.addSchedule(
+                          shopId: shopId,
+                          date: date,
+                          title: '수리 예정: ${requestData['userEmail'] ?? '고객'}',
+                          description:
+                              '${requestData['userRequest'] ?? '수리 요청'} - ${descriptionController.text}',
+                          customerEmail: requestData['userEmail'] ?? 'unknown',
+                        );
+                      }
+                    } catch (e) {
+                      print('Error adding schedule: $e');
+                      // 일정이 실패해도 견적 전송은 취소하지 않음 (선택 사항)
+                    }
+
                     if (!context.mounted) return;
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('견적이 성공적으로 전송되었습니다.')),
+                      const SnackBar(content: Text('견적과 일정이 성공적으로 전송되었습니다.')),
                     );
                   } catch (e) {
                     if (!context.mounted) return;
@@ -733,4 +790,3 @@ class ReviewManagementScreen extends StatelessWidget {
     );
   }
 }
-

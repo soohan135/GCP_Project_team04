@@ -23,6 +23,7 @@ import 'screens/role_selection_screen.dart';
 import 'screens/mechanic_screens.dart';
 import 'screens/shop_responses_screen.dart';
 import 'screens/chat_screen.dart';
+import 'screens/schedule_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -154,6 +155,7 @@ class _MainLayoutState extends State<MainLayout> {
   List<Widget> get _screens {
     if (widget.appUser.role == UserRole.mechanic) {
       return [
+        ScheduleScreen(appUser: widget.appUser),
         ReceivedRequestsScreen(appUser: widget.appUser),
         ReviewManagementScreen(appUser: widget.appUser),
         const ChatScreen(),
@@ -231,7 +233,7 @@ class _MainLayoutState extends State<MainLayout> {
                         color: Colors.grey,
                       ),
                       onPressed: () =>
-                          setState(() => _currentIndex = isMechanic ? 3 : 5),
+                          setState(() => _currentIndex = isMechanic ? 4 : 5),
                     ),
                   ],
                 ),
@@ -267,9 +269,10 @@ class _MainLayoutState extends State<MainLayout> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: isMechanic
                   ? [
-                      _buildNavItem(0, '받은 요청', LucideIcons.inbox),
-                      _buildNavItem(1, '리뷰 관리', LucideIcons.star),
-                      _buildNavItem(2, '채팅', LucideIcons.messageCircle),
+                      _buildNavItem(0, '일정', LucideIcons.calendar),
+                      _buildNavItem(1, '받은 요청', LucideIcons.inbox),
+                      _buildNavItem(2, '리뷰 관리', LucideIcons.star),
+                      _buildNavItem(3, '채팅', LucideIcons.messageCircle),
                     ]
                   : [
                       _buildNavItem(0, '홈', LucideIcons.home),
