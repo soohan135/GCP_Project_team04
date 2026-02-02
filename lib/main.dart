@@ -24,6 +24,8 @@ import 'screens/mechanic_screens.dart';
 import 'screens/shop_responses_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/schedule_screen.dart';
+import 'utils/mechanic_design.dart';
+import 'dart:ui';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -176,94 +178,173 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     final isMechanic = widget.appUser.role == UserRole.mechanic;
-    final backgroundColor = isMechanic
-        ? const Color(0xFFFFF9F0)
-        : Theme.of(context).cardColor;
 
-    return Scaffold(
-      backgroundColor: isMechanic ? const Color(0xFFFFF9F0) : null,
-      appBar: AppBar(
-        toolbarHeight: isMechanic ? 80 : 120, // Keep height for Logo & Search
-        backgroundColor: backgroundColor,
-        surfaceTintColor: Colors.transparent, // Disable Material 3 tint
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        flexibleSpace: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isMechanic ? Colors.orangeAccent : Colors.black,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          LucideIcons.car,
-                          color: Colors.white,
-                          size: 24,
-                        ),
+    // Determine title for Mechanic based on index
+    String mechanicTitle = '정비사 관리 시스템';
+    if (isMechanic) {
+      switch (_currentIndex) {
+        case 0:
+          mechanicTitle = '일정 관리';
+          break;
+        case 1:
+          mechanicTitle = '견적 요청 현황';
+          break;
+        case 2:
+          mechanicTitle = '리뷰 관리';
+          break;
+        case 3:
+          mechanicTitle = '채팅';
+          break;
+        case 4:
+          mechanicTitle = '설정';
+          break;
+      }
+    }
+
+    final consumerAppBar = AppBar(
+      toolbarHeight: 80, // Keep height for Logo & Search
+      backgroundColor: Theme.of(context).cardColor,
+      surfaceTintColor: Colors.transparent, // Disable Material 3 tint
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      flexibleSpace: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        LucideIcons.car,
+                        color: Colors.white,
+                        size: 24,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isMechanic ? 'CarFix Pro' : 'CarFix',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                            height: 1.1,
-                          ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'CarFix',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          height: 1.1,
                         ),
-                        Text(
-                          isMechanic ? '정비사 관리 시스템' : 'AI 견적 시스템',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(
-                        LucideIcons.settings,
-                        color: Colors.grey,
                       ),
-                      onPressed: () =>
-                          setState(() => _currentIndex = isMechanic ? 4 : 5),
-                    ),
-                  ],
-                ),
-                if (!isMechanic) ...[
-                  const SizedBox(height: 12),
-                  CustomSearchBar(
-                    onSubmitted: (value) {
-                      if (value.isNotEmpty) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                SearchResultsScreen(query: value),
-                          ),
-                        );
-                      }
-                    },
+                      Text(
+                        'AI 견적 시스템',
+                        style: TextStyle(fontSize: 10, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(LucideIcons.settings, color: Colors.grey),
+                    onPressed: () => setState(() => _currentIndex = 5),
                   ),
                 ],
-              ],
-            ),
+              ),
+              const SizedBox(height: 12),
+              CustomSearchBar(
+                onSubmitted: (value) {
+                  if (value.isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SearchResultsScreen(query: value),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
           ),
         ),
       ),
-      body: IndexedStack(index: _currentIndex, children: _screens),
+    );
+
+    PreferredSizeWidget? mechanicAppBar;
+    if (isMechanic) {
+      mechanicAppBar = PreferredSize(
+        preferredSize: const Size.fromHeight(80),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              color: MechanicColor.primary50.withValues(alpha: 0.8),
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 24,
+                right: 24,
+                bottom: 16,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: MechanicColor.pointGradient,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      LucideIcons.car,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'CarFix Pro',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: MechanicColor.primary700,
+                        ),
+                      ),
+                      Text(
+                        mechanicTitle,
+                        style: MechanicTypography.subheader.copyWith(
+                          fontWeight: FontWeight.bold,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      extendBodyBehindAppBar: isMechanic,
+      backgroundColor: isMechanic ? MechanicColor.background : null,
+      appBar: isMechanic ? mechanicAppBar : consumerAppBar,
+      body: isMechanic
+          ? WrenchBackground(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 80),
+                child: IndexedStack(index: _currentIndex, children: _screens),
+              ),
+            )
+          : IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
@@ -272,7 +353,7 @@ class _MainLayoutState extends State<MainLayout> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, -4),
             ),
@@ -306,12 +387,15 @@ class _MainLayoutState extends State<MainLayout> {
 
     // CarFix Pro Orange Theme
     final activeColor = isMechanic
-        ? const Color(0xFFFF6F00)
+        ? MechanicColor
+              .primary600 // Using Design Token
         : Colors.blueAccent;
     final activeBgColor = isMechanic
-        ? const Color(0xFFFFF3E0)
-        : Colors.blue.withOpacity(0.1);
+        ? MechanicColor
+              .primary100 // Using Design Token
+        : Colors.blue.withValues(alpha: 0.1);
     final inactiveColor = Colors.grey;
+    // final strokeWidth = (isMechanic && isActive) ? 2.5 : 2.0;
 
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = index),
