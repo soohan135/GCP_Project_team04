@@ -54,7 +54,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFFFF9F0), // Cream background
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _schedulesStream,
         builder: (context, snapshot) {
@@ -99,428 +99,454 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             _selectedDay ?? DateTime.now(),
           );
 
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.blueAccent.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          LucideIcons.calendar,
-                          color: Colors.blueAccent,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '일정 관리',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            '수리 일정을 확인하고 관리하세요.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey,
-                            ),
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(
+              24,
+              16,
+              24,
+              0,
+            ), // Decreased top padding
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Custom Header for Schedule Section (Compact)
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8), // Reduced padding
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orange.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Calendar Card
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Colors.blueAccent.withOpacity(0.1),
+                      child: const Icon(
+                        LucideIcons.calendar,
+                        color: Color(0xFFFF6F00),
+                        size: 20, // Reduced icon size
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blueAccent.withOpacity(0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
+                    ),
+                    const SizedBox(width: 12), // Reduced horizontal space
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '일정 관리',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            // Reduced text style
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF1F2937),
+                          ),
+                        ),
+                        Text(
+                          '수리 일정을 확인하고 관리하세요.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            // Smaller body text
+                            color: const Color(0xFF6B7280),
+                          ),
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.all(16),
-                    child: TableCalendar(
-                      rowHeight: 85, // Increase row height for stacked bars
-                      locale: 'ko_KR',
-                      firstDay: DateTime.utc(2020, 1, 1),
-                      lastDay: DateTime.utc(2030, 12, 31),
-                      focusedDay: _focusedDay,
-                      calendarFormat: _calendarFormat,
-                      selectedDayPredicate: (day) =>
-                          isSameDay(_selectedDay, day),
-                      onDaySelected: (selectedDay, focusedDay) {
-                        setState(() {
-                          _selectedDay = selectedDay;
-                          _focusedDay = focusedDay;
-                        });
-                      },
-                      onFormatChanged: (format) {
-                        setState(() {
-                          _calendarFormat = format;
-                        });
-                      },
-                      onPageChanged: (focusedDay) {
-                        _focusedDay = focusedDay;
-                      },
-                      eventLoader: _getEventsForDay,
-                      headerStyle: HeaderStyle(
-                        titleCentered: true,
-                        formatButtonVisible: false,
-                        titleTextStyle: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                        leftChevronIcon: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.chevron_left,
-                            color: Colors.blueAccent,
-                            size: 20,
-                          ),
-                        ),
-                        rightChevronIcon: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.chevron_right,
-                            color: Colors.blueAccent,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                      calendarBuilders: CalendarBuilders(
-                        markerBuilder: (context, day, events) {
-                          if (events.isEmpty) return null;
-
-                          // 1. Sort events for consistent stacking order
-                          final sortedEvents = List<Map<String, dynamic>>.from(
-                            events as List<Map<String, dynamic>>,
-                          );
-                          // Sort by ID or creation time to keep consistent
-                          sortedEvents.sort(
-                            (a, b) => (a['id'] ?? '').compareTo(b['id'] ?? ''),
-                          );
-
-                          // 2. Build stacked bars
-                          return Positioned(
-                            bottom: 1,
-                            left: 0,
-                            right: 0,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: sortedEvents.take(4).map((eventData) {
-                                final startDate = eventData['date'] as DateTime;
-                                final normalizedStart = DateTime(
-                                  startDate.year,
-                                  startDate.month,
-                                  startDate.day,
-                                );
-
-                                // Calculate Duration
-                                int duration = 1;
-                                final durationVal = eventData['duration'];
-                                if (durationVal is int) {
-                                  duration = durationVal;
-                                } else if (durationVal is String) {
-                                  final match = RegExp(
-                                    r'\d+',
-                                  ).firstMatch(durationVal);
-                                  if (match != null)
-                                    duration = int.parse(match.group(0)!);
-                                }
-
-                                final normalizedDay = DateTime(
-                                  day.year,
-                                  day.month,
-                                  day.day,
-                                );
-                                final normalizedEnd = normalizedStart.add(
-                                  Duration(days: duration - 1),
-                                );
-                                bool isStart = isSameDay(
-                                  normalizedDay,
-                                  normalizedStart,
-                                );
-                                bool isEnd = isSameDay(
-                                  normalizedDay,
-                                  normalizedEnd,
-                                );
-
-                                // Color generation based on ID - Light Blue Tones
-                                final colors = [
-                                  const Color(0xFFBBDEFB), // Blue 100
-                                  const Color(0xFFB3E5FC), // Light Blue 100
-                                  const Color(0xFFC5CAE9), // Indigo 100
-                                  const Color(0xFFB2EBF2), // Cyan 100
-                                  const Color(0xFFD1C4E9), // Deep Purple 100
-                                  const Color(0xFFE1F5FE), // Light Blue 50
-                                ];
-                                final colorIndex =
-                                    (eventData['id'] ?? '').hashCode.abs() %
-                                    colors.length;
-                                final eventColor = colors[colorIndex];
-
-                                return Container(
-                                  height: 16, // Thicker bar
-                                  margin: const EdgeInsets.symmetric(
-                                    vertical: 1,
-                                  ),
-                                  child: Container(
-                                    margin: EdgeInsets.only(
-                                      left: isStart ? 2 : 0,
-                                      right: isEnd ? 2 : 0,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: eventColor,
-                                      borderRadius: BorderRadius.horizontal(
-                                        left: isStart
-                                            ? const Radius.circular(4)
-                                            : Radius.zero,
-                                        right: isEnd
-                                            ? const Radius.circular(4)
-                                            : Radius.zero,
-                                      ),
-                                    ),
-                                    alignment: Alignment.centerLeft,
-                                    child: isStart
-                                        ? Text(
-                                            eventData['title'] ?? '',
-                                            style: TextStyle(
-                                              color: Colors
-                                                  .blue
-                                                  .shade900, // Dark text for contrast
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            maxLines: 1,
-                                          )
-                                        : null,
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          );
-                        },
-                      ),
-                      calendarStyle: CalendarStyle(
-                        outsideDaysVisible: false,
-                        markersMaxCount:
-                            0, // Disable default markers completely
-                        // Ensure cell content (date number) aligns top
-                        cellMargin: const EdgeInsets.all(0),
-                        cellPadding: const EdgeInsets.all(0),
-                        // We use default decoration for selection circle, may need adjusting
-                        selectedDecoration: const BoxDecoration(
-                          color: Colors.blueAccent,
-                          shape: BoxShape.circle,
-                        ),
-                        todayDecoration: BoxDecoration(
-                          color: Colors.blueAccent.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        todayTextStyle: const TextStyle(
-                          color: Colors.blueAccent,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        '상세 일정',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blueAccent.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${selectedEvents.length}건',
-                          style: const TextStyle(
-                            color: Colors.blueAccent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
+                  ],
+                ),
+                const SizedBox(height: 16), // Reduced vertical spacing
+                // Calendar Card (Fixed)
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  padding: const EdgeInsets.all(20),
+                  child: TableCalendar(
+                    rowHeight: 64, // Reduced height as requested
+                    daysOfWeekHeight: 40,
+                    locale: 'ko_KR',
+                    firstDay: DateTime.utc(2020, 1, 1),
+                    lastDay: DateTime.utc(2030, 12, 31),
+                    focusedDay: _focusedDay,
+                    calendarFormat: _calendarFormat,
+                    selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                    onDaySelected: (selectedDay, focusedDay) {
+                      setState(() {
+                        _selectedDay = selectedDay;
+                        _focusedDay = focusedDay;
+                      });
+                    },
+                    onFormatChanged: (format) {
+                      setState(() {
+                        _calendarFormat = format;
+                      });
+                    },
+                    onPageChanged: (focusedDay) {
+                      _focusedDay = focusedDay;
+                    },
+                    eventLoader: _getEventsForDay,
+                    headerStyle: HeaderStyle(
+                      titleCentered: true,
+                      formatButtonVisible: false,
+                      titleTextStyle: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 20,
+                        color: Color(0xFF1F2937),
+                      ),
+                      leftChevronIcon: const Icon(
+                        Icons.chevron_left,
+                        color: Color(0xFF9CA3AF),
+                        size: 28,
+                      ),
+                      rightChevronIcon: const Icon(
+                        Icons.chevron_right,
+                        color: Color(0xFF9CA3AF),
+                        size: 28,
+                      ),
+                    ),
+                    calendarBuilders: CalendarBuilders(
+                      defaultBuilder: (context, day, focusedDay) {
+                        return Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          alignment: Alignment.topCenter,
+                          child: Text(
+                            '${day.day}',
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 14,
+                            ),
+                          ),
+                        );
+                      },
+                      todayBuilder: (context, day, focusedDay) {
+                        return Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          alignment: Alignment.topCenter,
+                          child: Text(
+                            '${day.day}',
+                            style: const TextStyle(
+                              color: Color(0xFFFF6F00),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        );
+                      },
+                      selectedBuilder: (context, day, focusedDay) {
+                        return Container(
+                          margin: const EdgeInsets.only(top: 2),
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFF6F00),
+                              shape: BoxShape.circle,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${day.day}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      markerBuilder: (context, day, events) {
+                        if (events.isEmpty) return null;
 
-                  if (selectedEvents.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(40),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: theme.dividerColor.withOpacity(0.5),
+                        final sortedEvents = List<Map<String, dynamic>>.from(
+                          events as List<Map<String, dynamic>>,
+                        );
+                        sortedEvents.sort(
+                          (a, b) => (a['id'] ?? '').compareTo(b['id'] ?? ''),
+                        );
+
+                        return Positioned(
+                          bottom: 4,
+                          left: 0,
+                          right: 0,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: sortedEvents.take(3).map((eventData) {
+                              final startDate = eventData['date'] as DateTime;
+                              final normalizedStart = DateTime(
+                                startDate.year,
+                                startDate.month,
+                                startDate.day,
+                              );
+
+                              int duration = 1;
+                              final durationVal = eventData['duration'];
+                              if (durationVal is int) {
+                                duration = durationVal;
+                              } else if (durationVal is String) {
+                                final match = RegExp(
+                                  r'\d+',
+                                ).firstMatch(durationVal);
+                                if (match != null)
+                                  duration = int.parse(match.group(0)!);
+                              }
+
+                              final normalizedDay = DateTime(
+                                day.year,
+                                day.month,
+                                day.day,
+                              );
+                              final normalizedEnd = normalizedStart.add(
+                                Duration(days: duration - 1),
+                              );
+
+                              bool isStart = isSameDay(
+                                normalizedDay,
+                                normalizedStart,
+                              );
+                              bool isEnd = isSameDay(
+                                normalizedDay,
+                                normalizedEnd,
+                              );
+                              // Orange/Amber Shades for Bars
+                              final colors = [
+                                const Color(0xFFFFE0B2), // Orange 100
+                                const Color(0xFFFFCC80), // Orange 200
+                                const Color(0xFFFFD180), // Orange Accent 100
+                                const Color(0xFFFFECB3), // Amber 100
+                                const Color(0xFFFFE082), // Amber 200
+                              ];
+                              final colorIndex =
+                                  (eventData['id'] ?? '').hashCode.abs() %
+                                  colors.length;
+                              final eventColor = colors[colorIndex];
+
+                              return Container(
+                                height:
+                                    10, // Thinner bars to fit reduced height
+                                margin: const EdgeInsets.symmetric(vertical: 1),
+                                child: Container(
+                                  margin: EdgeInsets.only(
+                                    left: isStart ? 2 : 0,
+                                    right: isEnd ? 2 : 0,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: eventColor,
+                                    borderRadius: BorderRadius.horizontal(
+                                      left: isStart
+                                          ? const Radius.circular(2)
+                                          : Radius.zero,
+                                      right: isEnd
+                                          ? const Radius.circular(2)
+                                          : Radius.zero,
+                                    ),
+                                  ),
+                                  alignment: Alignment.centerLeft,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        );
+                      },
+                    ),
+                    calendarStyle: CalendarStyle(
+                      outsideDaysVisible: false,
+                      markersMaxCount: 0,
+                      cellMargin: const EdgeInsets.all(0),
+                      cellPadding: const EdgeInsets.all(0),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Scrollable Details Section
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              '상세 일정',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blueAccent.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${selectedEvents.length}건',
+                                style: const TextStyle(
+                                  color: Colors.blueAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            LucideIcons.calendarX,
-                            size: 48,
-                            color: Colors.grey[300],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            '해당 날짜에 잡힌 일정이 없습니다.',
-                            style: TextStyle(color: Colors.grey[500]),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    ...selectedEvents
-                        .map(
-                          (event) => Container(
-                            margin: const EdgeInsets.only(bottom: 16),
+                        const SizedBox(height: 16),
+
+                        if (selectedEvents.isEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(40),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: Colors
-                                    .blueAccent, // Blue border as requested
-                                width: 1.5,
+                                color: theme.dividerColor.withOpacity(0.5),
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.blueAccent.withOpacity(0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  LucideIcons.calendarX,
+                                  size: 48,
+                                  color: Colors.grey[300],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  '해당 날짜에 잡힌 일정이 없습니다.',
+                                  style: TextStyle(color: Colors.grey[500]),
                                 ),
                               ],
                             ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () => _showEventDetails(context, event),
-                                borderRadius: BorderRadius.circular(20),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          color: Colors.blueAccent.withOpacity(
-                                            0.1,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: const Center(
-                                          child: Icon(
-                                            LucideIcons.wrench,
-                                            color: Colors.blueAccent,
-                                            size: 24,
-                                          ),
-                                        ),
+                          )
+                        else
+                          ...selectedEvents
+                              .map(
+                                (event) => Container(
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: const Color(
+                                        0xFFFF6F00,
+                                      ).withOpacity(0.5), // Orange border
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(
+                                          0xFFFF6F00,
+                                        ).withOpacity(0.05),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
                                       ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                    ],
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () =>
+                                          _showEventDetails(context, event),
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(20),
+                                        child: Row(
                                           children: [
-                                            Text(
-                                              event['title'] ?? '제목 없음',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
+                                            Container(
+                                              width: 48,
+                                              height: 48,
+                                              decoration: BoxDecoration(
+                                                color: const Color(
+                                                  0xFFFF6F00,
+                                                ).withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: const Center(
+                                                child: Icon(
+                                                  LucideIcons.wrench,
+                                                  color: Color(0xFFFF6F00),
+                                                  size: 24,
+                                                ),
                                               ),
                                             ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  LucideIcons.user,
-                                                  size: 14,
-                                                  color: Colors.grey,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Expanded(
-                                                  child: Text(
-                                                    event['customerEmail'] ??
-                                                        '정보 없음',
-                                                    style: TextStyle(
-                                                      color: Colors.grey[600],
-                                                      fontSize: 13,
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    event['title'] ?? '제목 없음',
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 16,
                                                     ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
                                                   ),
-                                                ),
-                                              ],
+                                                  const SizedBox(height: 4),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(
+                                                        LucideIcons.user,
+                                                        size: 14,
+                                                        color: Colors.grey,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Expanded(
+                                                        child: Text(
+                                                          event['customerEmail'] ??
+                                                              '정보 없음',
+                                                          style: TextStyle(
+                                                            color: Colors
+                                                                .grey[600],
+                                                            fontSize: 13,
+                                                          ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const Icon(
+                                              LucideIcons.chevronRight,
+                                              color: Colors.grey,
                                             ),
                                           ],
                                         ),
                                       ),
-                                      const Icon(
-                                        LucideIcons.chevronRight,
-                                        color: Colors.grey,
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-
-                  const SizedBox(height: 40),
-                ],
-              ),
+                              )
+                              .toList(),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         },
