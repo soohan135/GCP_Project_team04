@@ -325,6 +325,13 @@ class _MainLayoutState extends State<MainLayout> {
                     ],
                   ),
                   const Spacer(),
+                  IconButton(
+                    icon: const Icon(
+                      LucideIcons.settings,
+                      color: MechanicColor.primary700,
+                    ),
+                    onPressed: () => setState(() => _currentIndex = 4),
+                  ),
                 ],
               ),
             ),
