@@ -355,8 +355,9 @@ class _MainLayoutState extends State<MainLayout> {
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
-          border: Border(
-            top: BorderSide(color: Theme.of(context).dividerColor),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
           ),
           boxShadow: [
             BoxShadow(
@@ -367,22 +368,28 @@ class _MainLayoutState extends State<MainLayout> {
           ],
         ),
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: isMechanic
-              ? [
-                  _buildNavItem(0, '일정', LucideIcons.calendar),
-                  _buildNavItem(1, '받은 요청', LucideIcons.inbox),
-                  _buildNavItem(2, '리뷰 관리', LucideIcons.star),
-                  _buildNavItem(3, '채팅', LucideIcons.messageCircle),
-                ]
-              : [
-                  _buildNavItem(0, '홈', LucideIcons.home),
-                  _buildNavItem(1, '견적 미리보기', LucideIcons.fileText),
-                  _buildNavItem(2, '정비소 응답', LucideIcons.clipboardList),
-                  _buildNavItem(3, '채팅', LucideIcons.messageCircle),
-                  _buildNavItem(4, '근처 정비소', LucideIcons.mapPin),
-                ],
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: isMechanic
+                ? [
+                    _buildNavItem(0, '일정', LucideIcons.calendar),
+                    _buildNavItem(1, '받은 요청', LucideIcons.inbox),
+                    _buildNavItem(2, '리뷰 관리', LucideIcons.star),
+                    _buildNavItem(3, '채팅', LucideIcons.messageCircle),
+                  ]
+                : [
+                    _buildNavItem(0, '홈', LucideIcons.home),
+                    _buildNavItem(1, '견적 미리보기', LucideIcons.fileText),
+                    _buildNavItem(2, '정비소 응답', LucideIcons.clipboardList),
+                    _buildNavItem(3, '채팅', LucideIcons.messageCircle),
+                    _buildNavItem(4, '근처 정비소', LucideIcons.mapPin),
+                  ],
+          ),
         ),
       ),
     );
@@ -395,7 +402,7 @@ class _MainLayoutState extends State<MainLayout> {
     // CarFix Pro Orange Theme
     final activeColor = isMechanic
         ? MechanicColor
-              .primary600 // Using Design Token
+              .primary500 // Using Design Token
         : Colors.blueAccent;
     final activeBgColor = isMechanic
         ? MechanicColor
