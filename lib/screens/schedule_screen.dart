@@ -118,8 +118,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   ),
                   padding: const EdgeInsets.all(24),
                   child: TableCalendar(
-                    rowHeight: 52,
-                    daysOfWeekHeight: 44,
+                    rowHeight: 85,
+                    daysOfWeekHeight: 32,
                     locale: 'ko_KR',
                     firstDay: DateTime.utc(2020, 1, 1),
                     lastDay: DateTime.utc(2030, 12, 31),
@@ -158,58 +158,82 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         color: Color(0xFFD1D5DB),
                         size: 28,
                       ),
-                      headerMargin: const EdgeInsets.only(bottom: 24),
+                      headerMargin: const EdgeInsets.only(bottom: 8),
                     ),
                     calendarBuilders: CalendarBuilders(
                       selectedBuilder: (context, day, focusedDay) {
+                        // When selected, standard number but maybe highlighted background?
+                        // The design shows selection circle around the number.
+                        // But we also need to see the bars under it or behind it.
+                        // Standard selection often hides markers or puts them on top.
+                        // We'll keep the number style but ensure markers still render below.
+                        // By extracting the "number" part and letting markers render in markerBuilder (which overlays)
+                        // OR, TableCalendar renders markers *on top* of cells usually.
+                        // Let's keep the circle for the number.
                         return Container(
-                          margin: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: MechanicColor.primary500,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: MechanicColor.primary300,
-                                blurRadius: 8,
-                                offset: Offset(0, 4),
+                          margin: const EdgeInsets.only(top: 8),
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: const BoxDecoration(
+                              color: MechanicColor.primary500,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: MechanicColor.primary300,
+                                  blurRadius: 8,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${day.day}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
-                            ],
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            '${day.day}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
                             ),
                           ),
                         );
                       },
                       todayBuilder: (context, day, focusedDay) {
                         return Container(
-                          alignment: Alignment.center,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                '${day.day}',
-                                style: const TextStyle(
-                                  color: MechanicColor.primary500,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                          margin: const EdgeInsets.only(top: 8),
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${day.day}',
+                              style: const TextStyle(
+                                color: MechanicColor.primary500,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
-                              const SizedBox(height: 4),
-                              Container(
-                                width: 4,
-                                height: 4,
-                                decoration: const BoxDecoration(
-                                  color: MechanicColor.primary400,
-                                  shape: BoxShape.circle,
-                                ),
+                            ),
+                          ),
+                        );
+                      },
+                      defaultBuilder: (context, day, focusedDay) {
+                        return Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${day.day}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
                               ),
-                            ],
+                            ),
                           ),
                         );
                       },
@@ -233,111 +257,112 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
                         return Container(
                           alignment: Alignment.bottomCenter,
-                          child: Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(bottom: 2),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: sortedEvents.take(3).map((eventData) {
-                                final startDate = eventData['date'] as DateTime;
-                                final normalizedStart = DateTime(
-                                  startDate.year,
-                                  startDate.month,
-                                  startDate.day,
-                                );
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: sortedEvents.take(3).map((eventData) {
+                              final startDate = eventData['date'] as DateTime;
+                              final normalizedStart = DateTime(
+                                startDate.year,
+                                startDate.month,
+                                startDate.day,
+                              );
 
-                                // Determine Duration
-                                int duration = 1;
-                                final durationVal = eventData['duration'];
-                                if (durationVal is int) {
-                                  duration = durationVal;
-                                } else if (durationVal is String) {
-                                  final match = RegExp(
-                                    r'\d+',
-                                  ).firstMatch(durationVal);
-                                  if (match != null) {
-                                    duration = int.parse(match.group(0)!);
-                                  }
+                              // Determine Duration
+                              int duration = 1;
+                              final durationVal = eventData['duration'];
+                              if (durationVal is int) {
+                                duration = durationVal;
+                              } else if (durationVal is String) {
+                                final match = RegExp(
+                                  r'\d+',
+                                ).firstMatch(durationVal);
+                                if (match != null) {
+                                  duration = int.parse(match.group(0)!);
                                 }
+                              }
 
-                                final normalizedEnd = normalizedStart.add(
-                                  Duration(days: duration - 1),
-                                );
-                                final normalizedDay = DateTime(
-                                  day.year,
-                                  day.month,
-                                  day.day,
-                                );
+                              final normalizedEnd = normalizedStart.add(
+                                Duration(days: duration - 1),
+                              );
+                              final normalizedDay = DateTime(
+                                day.year,
+                                day.month,
+                                day.day,
+                              );
 
-                                final isStart = normalizedDay.isAtSameMomentAs(
-                                  normalizedStart,
-                                );
-                                final isEnd = normalizedDay.isAtSameMomentAs(
-                                  normalizedEnd,
-                                );
+                              final isStart = normalizedDay.isAtSameMomentAs(
+                                normalizedStart,
+                              );
+                              final isEnd = normalizedDay.isAtSameMomentAs(
+                                normalizedEnd,
+                              );
 
-                                // Mechanic Color Palette
-                                final colors = [
-                                  MechanicColor.primary200,
-                                  MechanicColor.primary300,
-                                  MechanicColor.primary400,
-                                  MechanicColor.primary500,
-                                ];
+                              // Logic to determine if text should be shown:
+                              // Show text if it is the start day OR if it's the first column (Sunday) and the event spans from prev week
+                              // But simplistically: Show text on start day. Clip otherwise.
+                              final showText =
+                                  isStart ||
+                                  (day.weekday == DateTime.sunday &&
+                                      normalizedDay.isAfter(normalizedStart));
 
-                                final colorIndex =
-                                    (eventData['id'] ?? '')
-                                        .toString()
-                                        .hashCode
-                                        .abs() %
-                                    colors.length;
-                                final eventColor = colors[colorIndex];
+                              // Mechanic Color Palette (Variations for distinction)
+                              // We use primary colors but vary opacity or shade based on ID
+                              final baseColors = [
+                                MechanicColor.primary600,
+                                MechanicColor.primary500,
+                                MechanicColor.primary400,
+                                MechanicColor.primary700,
+                              ];
 
-                                return Container(
-                                  height: 6,
-                                  margin: const EdgeInsets.symmetric(
-                                    vertical: 1,
+                              final colorIndex =
+                                  (eventData['id'] ?? '')
+                                      .toString()
+                                      .hashCode
+                                      .abs() %
+                                  baseColors.length;
+                              final eventColor = baseColors[colorIndex];
+
+                              return Container(
+                                height: 16, // Increased height for text
+                                margin: const EdgeInsets.symmetric(
+                                  vertical: 1.5,
+                                ),
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: eventColor.withOpacity(
+                                    0.85,
+                                  ), // Slightly transparent for overlap feel
+                                  borderRadius: BorderRadius.horizontal(
+                                    left: isStart
+                                        ? const Radius.circular(4)
+                                        : Radius.zero,
+                                    right: isEnd
+                                        ? const Radius.circular(4)
+                                        : Radius.zero,
                                   ),
-                                  child: Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      Positioned(
-                                        top: 0,
-                                        bottom: 0,
-                                        left: isStart ? 2.0 : -1.0,
-                                        right: isEnd ? 2.0 : -1.0,
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: eventColor,
-                                            borderRadius:
-                                                BorderRadius.horizontal(
-                                                  left: isStart
-                                                      ? const Radius.circular(2)
-                                                      : Radius.zero,
-                                                  right: isEnd
-                                                      ? const Radius.circular(2)
-                                                      : Radius.zero,
-                                                ),
-                                          ),
+                                ),
+                                alignment: Alignment.centerLeft,
+                                padding: const EdgeInsets.only(
+                                  left: 4,
+                                  right: 2,
+                                ),
+                                child: showText
+                                    ? Text(
+                                        eventData['title'] ?? '',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.1,
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        );
-                      },
-                      defaultBuilder: (context, day, focusedDay) {
-                        return Container(
-                          alignment: Alignment.center,
-                          child: Text(
-                            '${day.day}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
+                                        overflow: TextOverflow.clip,
+                                        maxLines: 1,
+                                        softWrap: false,
+                                      )
+                                    : null,
+                              );
+                            }).toList(),
                           ),
                         );
                       },
