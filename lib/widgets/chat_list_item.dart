@@ -25,6 +25,8 @@ class ChatListItem extends StatelessWidget {
     final recommendations = estimate?.recommendations;
 
     return Card(
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -71,12 +73,18 @@ class ChatListItem extends StatelessWidget {
                     if (damage != null)
                       Text(
                         '손상 유형: $damage',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                       ),
                     if (recommendations != null && recommendations.isNotEmpty)
                       Text(
                         '부품: ${recommendations.join(', ')}',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

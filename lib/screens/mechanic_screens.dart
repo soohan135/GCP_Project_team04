@@ -109,8 +109,8 @@ class _ReceivedRequestCard extends StatelessWidget {
       badgeText = Colors.green.shade700;
       badgeLabel = '예약 확정';
     } else if (isResponded) {
-      badgeBg = Colors.grey.shade100;
-      badgeText = Colors.grey.shade600;
+      badgeBg = MechanicColor.primary50;
+      badgeText = MechanicColor.primary500;
       badgeLabel = '견적 발송됨';
     } else {
       badgeBg = MechanicColor.primary100;
@@ -145,7 +145,10 @@ class _ReceivedRequestCard extends StatelessWidget {
               ),
               Text(
                 dateStr,
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: const TextStyle(
+                  color: MechanicColor.primary400,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -250,6 +253,8 @@ class _ReceivedRequestCard extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: MechanicColor.primary500,
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: MechanicColor.primary100,
+                disabledForegroundColor: MechanicColor.primary600,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
