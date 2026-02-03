@@ -43,6 +43,29 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     return _events[normalizedDay] ?? [];
   }
 
+  // 1. Helper: Parse Duration
+  int _parseDuration(dynamic durationVal) {
+    if (durationVal is int) return durationVal;
+    if (durationVal is String) {
+      final match = RegExp(r'\d+').firstMatch(durationVal);
+      if (match != null) return int.parse(match.group(0)!);
+    }
+    return 1;
+  }
+
+  // 2. Helper: Get Pale Orange Color
+  Color _getEventColor(dynamic id) {
+    final paleOranges = [
+      const Color(0xFFFFCC80),
+      const Color(0xFFFFE0B2),
+      const Color(0xFFFFD180),
+      const Color(0xFFFFB74D),
+      const Color(0xFFFFAB91),
+    ];
+    final index = (id?.hashCode ?? 0).abs() % paleOranges.length;
+    return paleOranges[index];
+  }
+
   @override
   Widget build(BuildContext context) {
     // Determine shopId
@@ -74,14 +97,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             final date = schedule['date'] as DateTime;
             final normalizedDate = DateTime(date.year, date.month, date.day);
 
-            int duration = 1;
-            final durationVal = schedule['duration'];
-            if (durationVal is int) {
-              duration = durationVal;
-            } else if (durationVal is String) {
-              final match = RegExp(r'\d+').firstMatch(durationVal);
-              if (match != null) duration = int.parse(match.group(0)!);
-            }
+            int duration = _parseDuration(schedule['duration']);
 
             for (int i = 0; i < duration; i++) {
               final eventDate = normalizedDate.add(Duration(days: i));
@@ -90,6 +106,30 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               }
               _events[eventDate]!.add(schedule);
             }
+          }
+
+          // Pre-sort events for each day
+          for (var key in _events.keys) {
+            _events[key]!.sort((a, b) {
+              // 1. 기간(Duration) 비교: 긴 것이 먼저 (내림차순)
+              int durationA = _parseDuration(a['duration']);
+              int durationB = _parseDuration(b['duration']);
+              int durationCompare = durationB.compareTo(
+                durationA,
+              ); // b와 a를 비교해야 내림차순
+              if (durationCompare != 0) return durationCompare;
+
+              // 2. 시작 날짜(Start Date) 비교: 빠른 것이 먼저 (오름차순)
+              final dateA = a['date'] as DateTime;
+              final dateB = b['date'] as DateTime;
+              int dateCompare = dateA.compareTo(dateB);
+              if (dateCompare != 0) return dateCompare;
+
+              // 3. ID 또는 제목 비교 (안정적인 정렬을 위해)
+              return (a['id'] ?? '').toString().compareTo(
+                (b['id'] ?? '').toString(),
+              );
+            });
           }
 
           final selectedEvents = _getEventsForDay(
@@ -103,11 +143,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               children: [
                 const SizedBox(height: 24),
 
-                // Calendar Card (Highly Rounded)
+                // Calendar Card (Highly Rounded & Compact)
                 Container(
+                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(32), // Highly rounded
+                    borderRadius: BorderRadius.circular(32),
                     boxShadow: [
                       BoxShadow(
                         color: MechanicColor.primary600.withOpacity(0.05),
@@ -116,10 +157,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.all(24),
                   child: TableCalendar(
-                    rowHeight: 85,
-                    daysOfWeekHeight: 32,
+                    rowHeight: 80,
+                    daysOfWeekHeight: 22,
                     locale: 'ko_KR',
                     firstDay: DateTime.utc(2020, 1, 1),
                     lastDay: DateTime.utc(2030, 12, 31),
@@ -144,13 +184,15 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     headerStyle: HeaderStyle(
                       titleCentered: true,
                       formatButtonVisible: false,
+                      headerMargin: const EdgeInsets.only(bottom: 8),
+                      headerPadding: const EdgeInsets.symmetric(vertical: 4),
                       titleTextStyle: MechanicTypography.subheader.copyWith(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                       ),
                       leftChevronIcon: const Icon(
                         LucideIcons.chevronLeft,
-                        color: Color(0xFFD1D5DB), // lighter grey
+                        color: Color(0xFFD1D5DB),
                         size: 28,
                       ),
                       rightChevronIcon: const Icon(
@@ -158,7 +200,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         color: Color(0xFFD1D5DB),
                         size: 28,
                       ),
-                      headerMargin: const EdgeInsets.only(bottom: 8),
                     ),
                     calendarBuilders: CalendarBuilders(
                       selectedBuilder: (context, day, focusedDay) {
@@ -240,129 +281,111 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       markerBuilder: (context, day, events) {
                         if (events.isEmpty) return null;
 
-                        final sortedEvents = List<Map<String, dynamic>>.from(
-                          events as List<Map<String, dynamic>>,
-                        );
-
-                        // Sort by Start Date then ID for consistent ordering
-                        sortedEvents.sort((a, b) {
-                          final dA = a['date'] as DateTime;
-                          final dB = b['date'] as DateTime;
-                          int cmp = dA.compareTo(dB);
-                          if (cmp != 0) return cmp;
-                          return (a['id'] ?? '').toString().compareTo(
-                            (b['id'] ?? '').toString(),
-                          );
-                        });
+                        const maxVisibleCount = 2;
+                        final visibleEvents = events
+                            .take(maxVisibleCount)
+                            .toList();
+                        final hasMoreEvents = events.length > maxVisibleCount;
 
                         return Container(
-                          alignment: Alignment.bottomCenter,
-                          padding: const EdgeInsets.only(bottom: 4),
+                          alignment: Alignment.topCenter,
+
+                          // [수정 1] Wrapper의 좌우 패딩 제거 (Top만 남김)
+                          padding: const EdgeInsets.only(top: 44),
+
                           child: Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: sortedEvents.take(3).map((eventData) {
-                              final startDate = eventData['date'] as DateTime;
-                              final normalizedStart = DateTime(
-                                startDate.year,
-                                startDate.month,
-                                startDate.day,
-                              );
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              ...visibleEvents.map((eventData) {
+                                final mapData =
+                                    eventData as Map<String, dynamic>;
+                                final startDate = mapData['date'] as DateTime;
+                                final normalizedStart = DateTime(
+                                  startDate.year,
+                                  startDate.month,
+                                  startDate.day,
+                                );
 
-                              // Determine Duration
-                              int duration = 1;
-                              final durationVal = eventData['duration'];
-                              if (durationVal is int) {
-                                duration = durationVal;
-                              } else if (durationVal is String) {
-                                final match = RegExp(
-                                  r'\d+',
-                                ).firstMatch(durationVal);
-                                if (match != null) {
-                                  duration = int.parse(match.group(0)!);
-                                }
-                              }
+                                int duration = _parseDuration(
+                                  mapData['duration'],
+                                );
+                                final normalizedEnd = normalizedStart.add(
+                                  Duration(days: duration - 1),
+                                );
+                                final normalizedDay = DateTime(
+                                  day.year,
+                                  day.month,
+                                  day.day,
+                                );
 
-                              final normalizedEnd = normalizedStart.add(
-                                Duration(days: duration - 1),
-                              );
-                              final normalizedDay = DateTime(
-                                day.year,
-                                day.month,
-                                day.day,
-                              );
+                                final isStart = normalizedDay.isAtSameMomentAs(
+                                  normalizedStart,
+                                );
+                                final isEnd = normalizedDay.isAtSameMomentAs(
+                                  normalizedEnd,
+                                );
 
-                              final isStart = normalizedDay.isAtSameMomentAs(
-                                normalizedStart,
-                              );
-                              final isEnd = normalizedDay.isAtSameMomentAs(
-                                normalizedEnd,
-                              );
+                                final showText =
+                                    isStart ||
+                                    (day.weekday == DateTime.sunday &&
+                                        normalizedDay.isAfter(normalizedStart));
 
-                              // Logic to determine if text should be shown:
-                              // Show text if it is the start day OR if it's the first column (Sunday) and the event spans from prev week
-                              // But simplistically: Show text on start day. Clip otherwise.
-                              final showText =
-                                  isStart ||
-                                  (day.weekday == DateTime.sunday &&
-                                      normalizedDay.isAfter(normalizedStart));
+                                return Container(
+                                  height: 16,
 
-                              // Mechanic Color Palette (Variations for distinction)
-                              // We use primary colors but vary opacity or shade based on ID
-                              final baseColors = [
-                                MechanicColor.primary600,
-                                MechanicColor.primary500,
-                                MechanicColor.primary400,
-                                MechanicColor.primary700,
-                              ];
+                                  // [수정 2] 각각의 아이템에 조건부 마진 적용
+                                  // 시작일이면 왼쪽에 1.5, 종료일이면 오른쪽에 1.5 여백을 주어 구분감을 줌
+                                  // 중간 날짜는 여백이 0이므로 옆 날짜와 딱 붙어서 연결되어 보임
+                                  margin: EdgeInsets.only(
+                                    bottom: 2,
+                                    left: isStart ? 1.5 : 0.0,
+                                    right: isEnd ? 1.5 : 0.0,
+                                  ),
 
-                              final colorIndex =
-                                  (eventData['id'] ?? '')
-                                      .toString()
-                                      .hashCode
-                                      .abs() %
-                                  baseColors.length;
-                              final eventColor = baseColors[colorIndex];
-
-                              return Container(
-                                height: 16, // Increased height for text
-                                margin: const EdgeInsets.symmetric(
-                                  vertical: 1.5,
-                                ),
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: eventColor.withOpacity(
-                                    0.85,
-                                  ), // Slightly transparent for overlap feel
-                                  borderRadius: BorderRadius.horizontal(
-                                    left: isStart
-                                        ? const Radius.circular(4)
-                                        : Radius.zero,
-                                    right: isEnd
-                                        ? const Radius.circular(4)
-                                        : Radius.zero,
+                                  padding: const EdgeInsets.only(
+                                    left: 4,
+                                    right: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _getEventColor(
+                                      mapData['id'],
+                                    ).withOpacity(0.9),
+                                    borderRadius: BorderRadius.horizontal(
+                                      left: isStart
+                                          ? const Radius.circular(4)
+                                          : Radius.zero,
+                                      right: isEnd
+                                          ? const Radius.circular(4)
+                                          : Radius.zero,
+                                    ),
+                                  ),
+                                  alignment: Alignment.centerLeft,
+                                  child: showText
+                                      ? Text(
+                                          mapData['title'] ?? '',
+                                          style: const TextStyle(
+                                            color: Colors.black87,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600,
+                                            height: 1.1,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        )
+                                      : null,
+                                );
+                              }),
+                              if (hasMoreEvents)
+                                Container(
+                                  height: 8,
+                                  alignment: Alignment.topCenter,
+                                  child: const Icon(
+                                    Icons.more_horiz,
+                                    size: 12,
+                                    color: Colors.grey,
                                   ),
                                 ),
-                                alignment: Alignment.centerLeft,
-                                padding: const EdgeInsets.only(
-                                  left: 4,
-                                  right: 2,
-                                ),
-                                child: showText
-                                    ? Text(
-                                        eventData['title'] ?? '',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w600,
-                                          height: 1.1,
-                                        ),
-                                        overflow: TextOverflow.clip,
-                                        maxLines: 1,
-                                        softWrap: false,
-                                      )
-                                    : null,
-                              );
-                            }).toList(),
+                            ],
                           ),
                         );
                       },
@@ -376,7 +399,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 4),
 
                 // Selected Date Details
                 Row(
@@ -410,10 +433,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   child: selectedEvents.isEmpty
                       ? _buildEmptyEventsState()
                       : ListView.builder(
+                          padding: EdgeInsets.zero,
                           itemCount: selectedEvents.length,
                           itemBuilder: (context, index) {
                             final event = selectedEvents[index];
-                            return _EventCard(event: event);
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: _EventCard(event: event),
+                            );
                           },
                         ),
                 ),
