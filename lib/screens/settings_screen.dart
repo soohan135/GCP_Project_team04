@@ -44,7 +44,7 @@ class SettingsScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Theme.of(context).dividerColor),
+                  border: Border.all(color: MechanicColor.primary100),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -70,7 +70,13 @@ class SettingsScreen extends StatelessWidget {
                       onChanged: (value) {
                         themeProvider.toggleTheme(value);
                       },
-                      activeThumbColor: Colors.blueAccent,
+                      activeColor: MechanicColor.primary500,
+                      activeTrackColor: MechanicColor.primary200,
+                      inactiveThumbColor: MechanicColor.primary500,
+                      inactiveTrackColor: MechanicColor.primary100,
+                      trackOutlineColor: MaterialStateProperty.all(
+                        MechanicColor.primary500,
+                      ),
                     ),
                   ],
                 ),
@@ -87,7 +93,7 @@ class SettingsScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Theme.of(context).dividerColor),
+                    border: Border.all(color: MechanicColor.primary100),
                   ),
                   child: Row(
                     children: [

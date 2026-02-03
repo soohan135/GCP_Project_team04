@@ -192,12 +192,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       ),
                       leftChevronIcon: const Icon(
                         LucideIcons.chevronLeft,
-                        color: Color(0xFFD1D5DB),
+                        color: MechanicColor.primary600,
                         size: 28,
                       ),
                       rightChevronIcon: const Icon(
                         LucideIcons.chevronRight,
-                        color: Color(0xFFD1D5DB),
+                        color: MechanicColor.primary600,
                         size: 28,
                       ),
                     ),
@@ -457,9 +457,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.5),
+        color: MechanicColor.primary50,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+        border: Border.all(color: MechanicColor.primary100),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -467,12 +467,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           Icon(
             LucideIcons.calendarX,
             size: 48,
-            color: Colors.grey.withValues(alpha: 0.5),
+            color: MechanicColor.primary300,
           ),
           const SizedBox(height: 16),
           const Text(
             '해당 날짜에 잡힌 일정이 없습니다.',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: MechanicColor.primary400),
           ),
         ],
       ),
