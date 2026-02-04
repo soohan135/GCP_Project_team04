@@ -291,8 +291,8 @@ class _MainLayoutState extends State<MainLayout> {
           ? Container(
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
-                border: Border(
-                  top: BorderSide(color: Theme.of(context).dividerColor),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
                 ),
                 boxShadow: [
                   BoxShadow(
