@@ -16,8 +16,6 @@ import 'screens/estimate_preview_screen.dart';
 import 'screens/nearby_shops_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/search_results_screen.dart';
-import 'widgets/custom_search_bar.dart';
 import 'models/app_user.dart';
 import 'screens/role_selection_screen.dart';
 import 'screens/mechanic_screens.dart';
@@ -25,6 +23,7 @@ import 'screens/shop_responses_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/schedule_screen.dart';
 import 'utils/mechanic_design.dart';
+import 'utils/consumer_design.dart';
 import 'dart:ui';
 
 void main() async {
@@ -201,77 +200,7 @@ class _MainLayoutState extends State<MainLayout> {
       }
     }
 
-    final consumerAppBar = AppBar(
-      toolbarHeight: 80, // Keep height for Logo & Search
-      backgroundColor: Theme.of(context).cardColor,
-      surfaceTintColor: Colors.transparent, // Disable Material 3 tint
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      flexibleSpace: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        LucideIcons.car,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'CarFix',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          height: 1.1,
-                        ),
-                      ),
-                      Text(
-                        'AI 견적 시스템',
-                        style: TextStyle(fontSize: 10, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(LucideIcons.settings, color: Colors.grey),
-                    onPressed: () => setState(() => _currentIndex = 5),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              CustomSearchBar(
-                onSubmitted: (value) {
-                  if (value.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SearchResultsScreen(query: value),
-                      ),
-                    );
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    final consumerHeader = const ConsumerHeader();
 
     PreferredSizeWidget? mechanicAppBar;
     if (isMechanic) {
@@ -327,10 +256,16 @@ class _MainLayoutState extends State<MainLayout> {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(
-                      LucideIcons.settings,
+                      LucideIcons.logOut,
                       color: MechanicColor.primary700,
                     ),
-                    onPressed: () => setState(() => _currentIndex = 4),
+                    onPressed: () async {
+                      final authService = Provider.of<AuthService>(
+                        context,
+                        listen: false,
+                      );
+                      await authService.signOut();
+                    },
                   ),
                 ],
               ),
@@ -341,9 +276,11 @@ class _MainLayoutState extends State<MainLayout> {
     }
 
     return Scaffold(
-      extendBodyBehindAppBar: isMechanic,
-      backgroundColor: isMechanic ? MechanicColor.background : null,
-      appBar: isMechanic ? mechanicAppBar : consumerAppBar,
+      extendBodyBehindAppBar: true,
+      backgroundColor: isMechanic
+          ? MechanicColor.background
+          : ConsumerColor.background,
+      appBar: isMechanic ? mechanicAppBar : consumerHeader,
       body: isMechanic
           ? WrenchBackground(
               child: Padding(
@@ -351,47 +288,41 @@ class _MainLayoutState extends State<MainLayout> {
                 child: IndexedStack(index: _currentIndex, children: _screens),
               ),
             )
-          : IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -4),
+          : SearchBackground(
+              child: IndexedStack(index: _currentIndex, children: _screens),
             ),
-          ],
-        ),
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: isMechanic
-                ? [
-                    _buildNavItem(0, '일정', LucideIcons.calendar),
-                    _buildNavItem(1, '받은 요청', LucideIcons.inbox),
-                    _buildNavItem(2, '리뷰 관리', LucideIcons.star),
-                    _buildNavItem(3, '채팅', LucideIcons.messageCircle),
-                  ]
-                : [
-                    _buildNavItem(0, '홈', LucideIcons.home),
-                    _buildNavItem(1, '견적 미리보기', LucideIcons.fileText),
-                    _buildNavItem(2, '정비소 응답', LucideIcons.clipboardList),
-                    _buildNavItem(3, '채팅', LucideIcons.messageCircle),
-                    _buildNavItem(4, '근처 정비소', LucideIcons.mapPin),
-                  ],
-          ),
-        ),
-      ),
+      bottomNavigationBar: isMechanic
+          ? Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                border: Border(
+                  top: BorderSide(color: Theme.of(context).dividerColor),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).padding.bottom,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(0, '일정', LucideIcons.calendar),
+                  _buildNavItem(1, '받은 요청', LucideIcons.inbox),
+                  _buildNavItem(2, '리뷰 관리', LucideIcons.star),
+                  _buildNavItem(3, '채팅', LucideIcons.messageCircle),
+                ],
+              ),
+            )
+          : ConsumerBottomNav(
+              currentIndex: _currentIndex,
+              onTap: (index) => setState(() => _currentIndex = index),
+            ),
     );
   }
 
@@ -402,14 +333,13 @@ class _MainLayoutState extends State<MainLayout> {
     // CarFix Pro Orange Theme
     final activeColor = isMechanic
         ? MechanicColor
-              .primary500 // Using Design Token
+              .primary600 // Using Design Token
         : Colors.blueAccent;
     final activeBgColor = isMechanic
         ? MechanicColor
               .primary100 // Using Design Token
         : Colors.blue.withValues(alpha: 0.1);
     final inactiveColor = Colors.grey;
-    // final strokeWidth = (isMechanic && isActive) ? 2.5 : 2.0;
 
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = index),

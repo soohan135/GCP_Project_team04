@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/shop_provider.dart';
 import '../widgets/service_center_item.dart';
+import '../widgets/custom_search_bar.dart';
+import '../utils/consumer_design.dart';
 
 class NearbyShopsScreen extends StatefulWidget {
   const NearbyShopsScreen({super.key});
@@ -15,6 +17,7 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
   static const int _initialShowLimit = 8;
   final ScrollController _scrollController = ScrollController();
   String? _expandedShopId;
+  String _searchQuery = '';
 
   @override
   void dispose() {
@@ -27,47 +30,56 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
     return Consumer<ShopProvider>(
       builder: (context, shopProvider, child) {
         final allShops = shopProvider.shops;
-        final hasMore = allShops.length > _initialShowLimit;
+        final filteredShops = allShops.where((shop) {
+          final query = _searchQuery.toLowerCase();
+          return shop.name.toLowerCase().contains(query) ||
+              shop.address.toLowerCase().contains(query);
+        }).toList();
+        final hasMore = filteredShops.length > _initialShowLimit;
 
         // 표시할 리스트 결정
         final shopsToShow = (_showAll || !hasMore)
-            ? allShops
-            : allShops.take(_initialShowLimit).toList();
+            ? filteredShops
+            : filteredShops.take(_initialShowLimit).toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 100), // Header spacing
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: CustomSearchBar(
+                onSearch: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '내 근처 정비소 (10km)',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Text('내 근처 정비소 (10km)', style: ConsumerTypography.h1),
                       const SizedBox(height: 4),
                       Text(
-                        allShops.isEmpty && !shopProvider.isLoading
+                        filteredShops.isEmpty && !shopProvider.isLoading
                             ? '검색된 정비소가 없습니다.'
-                            : '총 ${allShops.length}개의 정비소가 검색되었습니다.',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.blueAccent,
-                          fontWeight: FontWeight.w500,
-                        ),
+                            : '총 ${filteredShops.length}개의 정비소가 검색되었습니다.',
+                        style: ConsumerTypography.tag,
                       ),
                     ],
                   ),
                   IconButton(
                     icon: const Icon(Icons.refresh),
-                    onPressed: () => shopProvider.fetchNearbyShops(),
+                    onPressed: () {
+                      _searchQuery = '';
+                      shopProvider.fetchNearbyShops();
+                    },
                   ),
                 ],
               ),
@@ -75,8 +87,11 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
             Expanded(
               child: shopProvider.isLoading && allShops.isEmpty
                   ? _buildLoadingView()
-                  : allShops.isEmpty
-                  ? _buildEmptyView(shopProvider.error)
+                  : filteredShops.isEmpty
+                  ? _buildEmptyView(
+                      shopProvider.error,
+                      isSearch: _searchQuery.isNotEmpty,
+                    )
                   : Scrollbar(
                       controller: _scrollController,
                       thickness: 6,
@@ -133,7 +148,7 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
     );
   }
 
-  Widget _buildEmptyView(String? error) {
+  Widget _buildEmptyView(String? error, {bool isSearch = false}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -141,13 +156,13 @@ class _NearbyShopsScreenState extends State<NearbyShopsScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.location_off_outlined,
+              isSearch ? Icons.search_off : Icons.location_off_outlined,
               size: 64,
               color: Colors.grey[400],
             ),
             const SizedBox(height: 16),
             Text(
-              error ?? '10km 이내에 정비소가 없습니다.',
+              error ?? (isSearch ? '검색 결과가 없습니다.' : '10km 이내에 정비소가 없습니다.'),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),

@@ -6,6 +6,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'chat_detail_screen.dart';
 import 'package:gcp_project_team_04/services/schedule_service.dart';
+import '../widgets/custom_search_bar.dart';
+import '../utils/consumer_design.dart';
 
 class ShopResponsesScreen extends StatefulWidget {
   const ShopResponsesScreen({super.key});
@@ -17,6 +19,7 @@ class ShopResponsesScreen extends StatefulWidget {
 class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
   String? _expandedCardId;
   final Map<String, DateTime> _selectedDates = {};
+  String _searchQuery = '';
 
   Future<void> _startChat(
     BuildContext context,
@@ -78,64 +81,100 @@ class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
       return const Center(child: Text('로그인이 필요합니다.'));
     }
 
-    return Scaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 24, 24, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '정비소 응답 현황',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  '정비소에서 보낸 견적 제안을 확인하세요.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
-                ),
-              ],
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 100), // Header spacing
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: CustomSearchBar(
+            onSearch: (value) {
+              setState(() {
+                _searchQuery = value;
+              });
+            },
           ),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .collection('response_estimate')
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('정비소 응답 현황', style: ConsumerTypography.h1),
+              const SizedBox(height: 4),
+              Text(
+                '정비소에서 보낸 견적 제안을 확인하세요.',
+                style: ConsumerTypography.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .collection('response_estimate')
+                .orderBy('createdAt', descending: true)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: ConsumerColor.brand500,
                   ),
-                  itemCount: snapshot.data!.docs.length,
-                  itemBuilder: (context, index) {
-                    final doc = snapshot.data!.docs[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    final docId = doc.id;
-                    final isExpanded = _expandedCardId == docId;
-
-                    return _buildResponseCard(context, data, docId, isExpanded);
-                  },
                 );
-              },
-            ),
+              }
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return _buildEmptyState();
+              }
+
+              final allDocs = snapshot.data!.docs;
+              final filteredDocs = allDocs.where((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final query = _searchQuery.toLowerCase();
+                final shopName = (data['shopName'] ?? '')
+                    .toString()
+                    .toLowerCase();
+                final shopAddress = (data['shopAddress'] ?? '')
+                    .toString()
+                    .toLowerCase();
+                return shopName.contains(query) || shopAddress.contains(query);
+              }).toList();
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: filteredDocs.isEmpty
+                        ? _buildEmptyState(isSearch: _searchQuery.isNotEmpty)
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
+                            itemCount: filteredDocs.length,
+                            itemBuilder: (context, index) {
+                              final doc = filteredDocs[index];
+                              final data = doc.data() as Map<String, dynamic>;
+                              final docId = doc.id;
+                              final isExpanded = _expandedCardId == docId;
+
+                              return _buildResponseCard(
+                                context,
+                                data,
+                                docId,
+                                isExpanded,
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -165,15 +204,15 @@ class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isExpanded ? Colors.blueAccent : const Color(0xFFE2E8F0),
+          color: isExpanded ? ConsumerColor.brand300 : ConsumerColor.slate100,
           width: isExpanded ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: isExpanded
-                ? Colors.blueAccent.withOpacity(0.05)
+                ? ConsumerColor.brand100.withOpacity(0.3)
                 : Colors.black.withOpacity(0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
@@ -201,12 +240,12 @@ class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
                     decoration: BoxDecoration(
                       color: isReserved
                           ? Colors.green.withOpacity(0.1)
-                          : Colors.blueAccent.withOpacity(0.1),
+                          : ConsumerColor.brand50,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       LucideIcons.warehouse,
-                      color: isReserved ? Colors.green : Colors.blueAccent,
+                      color: isReserved ? Colors.green : ConsumerColor.brand500,
                       size: 24,
                     ),
                   ),
@@ -219,9 +258,8 @@ class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
                           children: [
                             Text(
                               data['shopName'] ?? '정비소',
-                              style: const TextStyle(
+                              style: ConsumerTypography.h2.copyWith(
                                 fontSize: 16,
-                                fontWeight: FontWeight.bold,
                               ),
                             ),
                             if (isReserved) ...[
@@ -253,16 +291,13 @@ class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
                             const Icon(
                               LucideIcons.mapPin,
                               size: 12,
-                              color: Colors.grey,
+                              color: ConsumerColor.slate400,
                             ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 data['shopAddress'] ?? '주소 정보 없음',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
+                                style: ConsumerTypography.bodySmall,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -465,10 +500,12 @@ class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
                             }
                           },
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.blueAccent),
-                            foregroundColor: Colors.blueAccent,
+                            side: const BorderSide(
+                              color: ConsumerColor.brand200,
+                            ),
+                            foregroundColor: ConsumerColor.brand600,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(16),
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
@@ -502,11 +539,11 @@ class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
                                 },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: isReserved
-                                ? Colors.grey
-                                : Colors.blueAccent,
+                                ? ConsumerColor.slate200
+                                : ConsumerColor.brand500,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(16),
                             ),
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -633,45 +670,48 @@ class _ShopResponsesScreenState extends State<ShopResponsesScreen> {
   }) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: Colors.grey),
+        Icon(icon, size: 16, color: ConsumerColor.slate400),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+        Text(label, style: ConsumerTypography.bodySmall),
         const Spacer(),
         Text(
           value,
           style: TextStyle(
             fontSize: isPrice ? 18 : 14,
             fontWeight: FontWeight.bold,
-            color: isPrice ? Colors.blueAccent : Colors.black87,
+            color: isPrice ? ConsumerColor.brand600 : ConsumerColor.slate800,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({bool isSearch = false}) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            LucideIcons.clipboardList,
-            size: 64,
-            color: Colors.grey.withOpacity(0.3),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            '받은 응답이 없습니다.',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: ConsumerColor.brand50,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isSearch ? Icons.search_off : LucideIcons.clipboardList,
+              size: 48,
+              color: ConsumerColor.brand300,
             ),
           ),
-          const SizedBox(height: 4),
-          const Text(
-            '정비소에서 견적을 보내면 여기에 표시됩니다.',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
+          const SizedBox(height: 24),
+          Text(
+            isSearch ? '검색 결과가 없습니다.' : '받은 응답이 없습니다.',
+            style: ConsumerTypography.h2,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isSearch ? '다른 검색어를 입력해 보세요.' : '정비소에서 견적을 보내면 여기에 표시됩니다.',
+            style: ConsumerTypography.bodyMedium,
           ),
         ],
       ),

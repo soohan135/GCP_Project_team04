@@ -1,0 +1,5 @@
+{
+  "name": "CarFix AI",
+  "description": "AI-powered car damage analysis and repair cost estimation application with a friendly, cute interface.",
+  "requestFramePermissions": []
+}

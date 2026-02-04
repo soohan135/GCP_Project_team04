@@ -3,7 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../services/chat_service.dart';
+import '../services/auth_service.dart';
+import '../models/app_user.dart';
+import '../utils/consumer_design.dart';
 import '../utils/mechanic_design.dart';
 import 'package:flutter/services.dart';
 
@@ -73,83 +77,116 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: MechanicColor.background,
-      appBar: AppBar(
-        title: Text(
-          widget.otherUserName,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: MechanicColor.primary100,
-        foregroundColor: Colors.black,
-      ),
-      body: WrenchBackground(
-        child: Column(
-          children: [
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _chatService.getMessages(widget.roomId),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+    final authService = Provider.of<AuthService>(context, listen: false);
 
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            LucideIcons.messageCircle,
-                            size: 48,
-                            color: Colors.grey.shade300,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            '대화를 시작해보세요!',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+    return StreamBuilder<AppUser?>(
+      stream: authService.appUserStream,
+      builder: (context, snapshot) {
+        final appUser = snapshot.data;
+        final isMechanic = appUser?.role == UserRole.mechanic;
 
-                  final messages = snapshot.data!.docs;
-
-                  return ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 20,
-                    ),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final data =
-                          messages[index].data() as Map<String, dynamic>;
-                      final isMe = data['senderId'] == _currentUserId;
-                      final timestamp = data['createdAt'] as Timestamp?;
-
-                      return _buildMessageBubble(
-                        data['text'],
-                        isMe,
-                        timestamp?.toDate(),
-                      );
-                    },
-                  );
-                },
-              ),
+        return Scaffold(
+          backgroundColor: isMechanic
+              ? MechanicColor.background
+              : ConsumerColor.background,
+          appBar: AppBar(
+            title: Text(
+              widget.otherUserName,
+              style: isMechanic
+                  ? MechanicTypography.subheader.copyWith(
+                      fontWeight: FontWeight.bold,
+                    )
+                  : ConsumerTypography.h2,
             ),
-            _buildMessageInput(),
-          ],
-        ),
-      ),
+            centerTitle: true,
+            elevation: 0,
+            backgroundColor: isMechanic
+                ? MechanicColor.primary100
+                : ConsumerColor.brand200,
+            foregroundColor: isMechanic ? Colors.black : ConsumerColor.slate800,
+            surfaceTintColor: isMechanic
+                ? MechanicColor.primary100
+                : ConsumerColor.brand200,
+          ),
+          body: isMechanic
+              ? WrenchBackground(child: _buildChatBody(context, true))
+              : SearchBackground(
+                  offset: const Offset(0, -100),
+                  child: _buildChatBody(context, false),
+                ),
+        );
+      },
     );
   }
 
-  Widget _buildMessageBubble(String text, bool isMe, DateTime? time) {
+  Widget _buildChatBody(BuildContext context, bool isMechanic) {
+    return Column(
+      children: [
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: _chatService.getMessages(widget.roomId),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        LucideIcons.messageCircle,
+                        size: 48,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        '대화를 시작해보세요!',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final messages = snapshot.data!.docs;
+
+              return ListView.builder(
+                controller: _scrollController,
+                reverse: true,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 20,
+                ),
+                itemCount: messages.length,
+                itemBuilder: (context, index) {
+                  final data = messages[index].data() as Map<String, dynamic>;
+                  final isMe = data['senderId'] == _currentUserId;
+                  final timestamp = data['createdAt'] as Timestamp?;
+
+                  return _buildMessageBubble(
+                    data['text'],
+                    isMe,
+                    timestamp?.toDate(),
+                    isMechanic,
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        _buildMessageInput(isMechanic),
+      ],
+    );
+  }
+
+  Widget _buildMessageBubble(
+    String text,
+    bool isMe,
+    DateTime? time,
+    bool isMechanic,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -170,8 +207,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: isMe ? null : Colors.white,
-                gradient: isMe ? MechanicColor.pointGradient : null,
+                color: isMe
+                    ? (isMechanic ? null : ConsumerColor.brand500)
+                    : Colors.white,
+                gradient: isMe && isMechanic
+                    ? MechanicColor.pointGradient
+                    : null,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(18),
                   topRight: const Radius.circular(18),
@@ -191,7 +232,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               child: Text(
                 text,
                 style: TextStyle(
-                  color: isMe ? Colors.white : Colors.black87,
+                  color: isMe ? Colors.white : ConsumerColor.slate800,
                   fontSize: 15,
                   height: 1.3,
                 ),
@@ -203,7 +244,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               padding: const EdgeInsets.only(left: 8, bottom: 2),
               child: Text(
                 DateFormat('HH:mm').format(time),
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isMechanic ? Colors.grey : ConsumerColor.slate400,
+                ),
               ),
             ),
         ],
@@ -211,7 +255,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _buildMessageInput() {
+  Widget _buildMessageInput(bool isMechanic) {
     return Container(
       padding: EdgeInsets.only(
         left: 16,
@@ -235,7 +279,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: isMechanic
+                    ? Colors.grey.shade100
+                    : ConsumerColor.slate50,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: TextField(
@@ -247,14 +293,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   contentPadding: EdgeInsets.symmetric(vertical: 10),
                 ),
                 maxLines: null,
-                style: const TextStyle(fontSize: 15),
+                style: isMechanic
+                    ? const TextStyle(fontSize: 15)
+                    : ConsumerTypography.bodyMedium,
               ),
             ),
           ),
           const SizedBox(width: 8),
           Container(
-            decoration: const BoxDecoration(
-              color: MechanicColor.primary500,
+            decoration: BoxDecoration(
+              color: isMechanic
+                  ? MechanicColor.primary500
+                  : ConsumerColor.brand500,
               shape: BoxShape.circle,
             ),
             child: IconButton(

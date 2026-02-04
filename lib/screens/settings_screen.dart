@@ -7,9 +7,18 @@ import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
 import '../models/app_user.dart';
 import '../utils/mechanic_design.dart';
+import '../widgets/custom_search_bar.dart';
+import '../utils/consumer_design.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
@@ -20,108 +29,163 @@ class SettingsScreen extends StatelessWidget {
       stream: authService.appUserStream,
       builder: (context, snapshot) {
         final appUser = snapshot.data;
+        final isConsumer = appUser?.role == UserRole.consumer;
+
+        final settingItems = [
+          if (appUser != null &&
+              appUser.role == UserRole.mechanic &&
+              appUser.serviceCenterId != null)
+            'shop_info',
+          'dark_mode',
+          'logout',
+        ];
+
+        final filteredItems = settingItems.where((item) {
+          final query = _searchQuery.toLowerCase();
+          if (item == 'dark_mode') return '다크 모드'.contains(query);
+          if (item == 'logout') return '로그아웃'.contains(query);
+          if (item == 'shop_info') return '내 정비소 정보'.contains(query);
+          return true;
+        }).toList();
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.only(
+            top: isConsumer ? 110 : 24,
+            left: 24,
+            right: 24,
+            bottom: 24,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              if (isConsumer)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: CustomSearchBar(
+                    onSearch: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                  ),
+                ),
+              Text(
                 '설정',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: isConsumer
+                    ? ConsumerTypography.h1
+                    : const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
 
-              if (appUser != null &&
-                  appUser.role == UserRole.mechanic &&
-                  appUser.serviceCenterId != null) ...[
-                _buildShopInfoSection(context, appUser.serviceCenterId!),
+              if (filteredItems.contains('shop_info') &&
+                  appUser?.serviceCenterId != null) ...[
+                _buildShopInfoSection(context, appUser!.serviceCenterId!),
                 const SizedBox(height: 16),
               ],
 
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: MechanicColor.primary100),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '다크 모드',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          '시스템 테마를 블랙/화이트로 설정합니다',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                    Switch(
-                      value: themeProvider.isDarkMode,
-                      onChanged: (value) {
-                        themeProvider.toggleTheme(value);
-                      },
-                      activeColor: MechanicColor.primary500,
-                      activeTrackColor: MechanicColor.primary200,
-                      inactiveThumbColor: MechanicColor.primary500,
-                      inactiveTrackColor: MechanicColor.primary100,
-                      trackOutlineColor: MaterialStateProperty.all(
-                        MechanicColor.primary500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Logout Section
-              GestureDetector(
-                onTap: () async {
-                  await authService.signOut();
-                  // AuthWrapper will automatically handle redirection
-                },
-                child: Container(
+              if (filteredItems.contains('dark_mode')) ...[
+                Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: MechanicColor.primary100),
+                    border: Border.all(
+                      color: isConsumer
+                          ? ConsumerColor.brand100
+                          : MechanicColor.primary100,
+                    ),
                   ),
                   child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          LucideIcons.logOut,
-                          color: Colors.red,
-                          size: 20,
-                        ),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '다크 모드',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            '시스템 테마를 블랙/화이트로 설정합니다',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 16),
-                      const Text(
-                        '로그아웃',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.red,
-                        ),
+                      Switch(
+                        value: themeProvider.isDarkMode,
+                        onChanged: (value) {
+                          themeProvider.toggleTheme(value);
+                        },
+                        activeColor: isConsumer
+                            ? Colors.blueAccent
+                            : MechanicColor.primary500,
+                        activeTrackColor: isConsumer
+                            ? null
+                            : MechanicColor.primary200,
                       ),
                     ],
                   ),
                 ),
-              ),
+                const SizedBox(height: 16),
+              ],
+
+              if (filteredItems.contains('logout')) ...[
+                GestureDetector(
+                  onTap: () async {
+                    await authService.signOut();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            LucideIcons.logOut,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        const Text(
+                          '로그아웃',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
+              if (filteredItems.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40.0),
+                    child: Text(
+                      '일치하는 설정 항목이 없습니다.',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -201,7 +265,6 @@ class SettingsScreen extends StatelessWidget {
           onTap: isCopyable
               ? () {
                   Clipboard.setData(ClipboardData(text: value));
-                  // Simple visual feedback without state
                 }
               : null,
           child: Row(

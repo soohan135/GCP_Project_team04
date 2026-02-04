@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/estimate_provider.dart';
 import '../providers/shop_provider.dart';
 import 'select_shops_screen.dart';
+import '../utils/consumer_design.dart';
 
 class EstimateDetailScreen extends StatelessWidget {
   final Estimate estimate;
@@ -21,7 +22,13 @@ class EstimateDetailScreen extends StatelessWidget {
     } catch (_) {}
 
     return Scaffold(
-      appBar: AppBar(title: const Text('견적 상세'), centerTitle: true),
+      backgroundColor: ConsumerColor.brand50,
+      appBar: AppBar(
+        title: Text('견적 상세', style: ConsumerTypography.h2),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -60,10 +67,7 @@ class EstimateDetailScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Text(
-              estimate.title,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+            Text(estimate.title, style: ConsumerTypography.h1),
             const SizedBox(height: 24),
 
             // 견적 이미지
@@ -97,8 +101,8 @@ class EstimateDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: ConsumerColor.brand100),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.03),
@@ -128,10 +132,7 @@ class EstimateDetailScreen extends StatelessWidget {
             const SizedBox(height: 32),
 
             // 권장 작업 리스트
-            const Text(
-              '권장 작업 내용',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            Text('권장 작업 내용', style: ConsumerTypography.h2),
             const SizedBox(height: 16),
 
             if (estimate.recommendations.isNotEmpty)
@@ -202,7 +203,7 @@ class EstimateDetailScreen extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () => _showRepairCompleteDialog(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: ConsumerColor.brand500,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -327,4 +328,3 @@ class EstimateDetailScreen extends StatelessWidget {
     );
   }
 }
-

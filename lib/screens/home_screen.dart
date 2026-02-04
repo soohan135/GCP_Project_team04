@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +9,8 @@ import 'package:provider/provider.dart';
 import '../services/storage_service.dart';
 import '../providers/shop_provider.dart';
 import '../providers/estimate_provider.dart';
+import '../widgets/custom_search_bar.dart';
+import '../utils/consumer_design.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -393,278 +396,310 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 20),
-          Text(
-            'AI 기반 자동 견적 서비스',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.indigo[900],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 100),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: CustomSearchBar(
+                onSearch: (value) {
+                  // TODO: 홈 화면 통합 검색 기능 구현
+                },
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            '차량 손상 사진을 업로드하면 즉시 수리 견적을 확인할 수 있습니다',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 48),
-
-          if (!_isAnalyzing && !_isUploading && _result == null)
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 60),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade300, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: Column(
+            // Hero Section
+            Column(
+              children: [
+                const SizedBox(height: 8),
+                Stack(
+                  alignment: Alignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      width: 120,
+                      height: 120,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white.withOpacity(0.5),
+                        shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        LucideIcons.plus,
-                        size: 40,
-                        color: Colors.blueAccent,
+                      child: const Center(
+                        child: PixieMascot(status: 'idle', size: 96),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      '손상된 차량 사진을 업로드하세요',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '클릭하여 이미지 추가',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
-                    ),
-                    const SizedBox(height: 20),
-                    const Icon(
-                      LucideIcons.upload,
-                      size: 20,
-                      color: Colors.grey,
                     ),
                   ],
                 ),
-              ),
-            ),
-
-          if (_isUploading)
-            Column(
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 24),
-                const Text(
-                  '사진을 업로드 중...',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                const SizedBox(height: 16),
+                Text(
+                  '안녕하세요! \nAI 정비사 픽시가 도와드릴게요',
+                  textAlign: TextAlign.center,
+                  style: ConsumerTypography.h1,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Firebase Storage에 사진을 저장하고 있습니다.',
-                  style: TextStyle(color: Colors.grey),
+                Text(
+                  '파손된 부위 사진을 올려주시면\n빠르게 견적을 내어드려요.',
+                  textAlign: TextAlign.center,
+                  style: ConsumerTypography.bodyMedium,
                 ),
+                const SizedBox(height: 32),
               ],
             ),
 
-          if (_isAnalyzing)
-            Column(
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 24),
-                const Text(
-                  'AI 서버에서 분석 중...',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '이미지를 바탕으로 수리 견적을 산출하고 있습니다.',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ],
-            ),
+            // Upload Card / analyzing / result
+            if (!_isAnalyzing && !_isUploading && _result == null)
+              _buildUploadCard()
+            else if (_isUploading || _isAnalyzing)
+              _buildAnalyzingState()
+            else if (_result != null)
+              _buildResultView(),
 
-          if (_result != null)
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          LucideIcons.checkCircle2,
-                          color: Colors.green,
-                          size: 28,
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          '견적 분석 완료',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+            const SizedBox(height: 120), // Bottom padding for nav
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUploadCard() {
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        width: double.infinity,
+        height: 380,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: ConsumerColor.slate100),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 112,
+                  height: 112,
+                  decoration: BoxDecoration(
+                    color: ConsumerColor.brand50,
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: ConsumerColor.brand100, width: 2),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      LucideIcons.plus,
+                      size: 48,
+                      color: ConsumerColor.brand300,
                     ),
-                    const SizedBox(height: 24),
-                    if (_result!['analyzedImageUrl'] != null) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          _result!['analyzedImageUrl'],
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: double.infinity,
-                              height: 200,
-                              color: Colors.grey[200],
-                              child: const Icon(
-                                Icons.image_not_supported,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                    const Text(
-                      '분석 결과',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+                ),
+                Positioned(
+                  top: -8,
+                  right: -8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _result!['damage'],
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    decoration: BoxDecoration(
+                      color: ConsumerColor.brand500,
+                      borderRadius: BorderRadius.circular(100),
                     ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      '예상 수리비',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _result!['estimatedPrice'],
-                      style: const TextStyle(
-                        fontSize: 26,
+                    child: Text(
+                      'TOUCH!',
+                      style: GoogleFonts.outfit(
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: Colors.blueAccent,
+                        color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      '권장 작업',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
-                    ),
-                    const SizedBox(height: 12),
-                    ...(_result!['recommendations'] as List).map(
-                      (task) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.circle,
-                              size: 6,
-                              color: Colors.blueAccent,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(task),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _saveEstimate,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          '견적 저장',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _handleRequestToShops,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          '근처 정비소에 견적 요청하기',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () => setState(() => _result = null),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.blueAccent),
-                          foregroundColor: Colors.blueAccent,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          '다른 사진 업로드하기',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            Text('사진 업로드하기', style: ConsumerTypography.h2),
+            const SizedBox(height: 8),
+            Text('여기를 눌러서 사진을 선택하세요', style: ConsumerTypography.bodyMedium),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildSmallActionBtn(LucideIcons.camera, '카메라'),
+                const SizedBox(width: 12),
+                _buildSmallActionBtn(LucideIcons.image, '갤러리'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSmallActionBtn(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: ConsumerColor.brand50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ConsumerColor.brand100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: ConsumerColor.brand600),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: ConsumerColor.brand600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalyzingState() {
+    return Container(
+      width: double.infinity,
+      height: 380,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: ConsumerColor.slate100),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const PixieMascot(status: 'thinking', size: 128),
+          const SizedBox(height: 32),
+          Text(
+            _isUploading ? '사진을 업로드 중...' : 'AI가 분석하고 있어요...',
+            style: ConsumerTypography.h2,
+          ),
+          const SizedBox(height: 8),
+          Text('잠시만 기다려주세요', style: ConsumerTypography.bodyMedium),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultView() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: ConsumerColor.slate100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                LucideIcons.checkCircle2,
+                color: Colors.green,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text('견적 분석 완료', style: ConsumerTypography.h2),
+            ],
+          ),
+          const SizedBox(height: 24),
+          if (_result!['analyzedImageUrl'] != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                _result!['analyzedImageUrl'],
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.cover,
               ),
             ),
+          const SizedBox(height: 24),
+          Text('분석 결과', style: ConsumerTypography.bodySmall),
+          const SizedBox(height: 4),
+          Text(
+            _result!['damage'],
+            style: ConsumerTypography.bodyLarge.copyWith(
+              color: ConsumerColor.slate800,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text('예상 수리비', style: ConsumerTypography.bodySmall),
+          const SizedBox(height: 4),
+          Text(
+            _result!['estimatedPrice'],
+            style: ConsumerTypography.h1.copyWith(
+              color: ConsumerColor.brand500,
+              fontSize: 26,
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _saveEstimate,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                '견적 저장',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _handleRequestToShops,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ConsumerColor.brand500,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                '정비소에 견적 요청하기',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => setState(() => _result = null),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: ConsumerColor.brand200),
+                foregroundColor: ConsumerColor.brand500,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                '다른 사진 업로드',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
         ],
       ),
     );
