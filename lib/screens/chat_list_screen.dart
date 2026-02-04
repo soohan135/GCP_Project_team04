@@ -85,20 +85,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     ),
                   ),
                 ] else ...[
-                  // For Mechanic
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 8,
-                    ),
-                    child: CustomSearchBar(
-                      onSearch: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                        });
-                      },
-                    ),
-                  ),
+                  const SizedBox(height: 20),
                 ],
                 Expanded(
                   child: filteredRooms.isEmpty

@@ -200,7 +200,9 @@ class _MainLayoutState extends State<MainLayout> {
       }
     }
 
-    final consumerHeader = const ConsumerHeader();
+    final consumerHeader = ConsumerHeader(
+      onSettingsTap: () => setState(() => _currentIndex = 5),
+    );
 
     PreferredSizeWidget? mechanicAppBar;
     if (isMechanic) {
@@ -256,16 +258,10 @@ class _MainLayoutState extends State<MainLayout> {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(
-                      LucideIcons.logOut,
+                      LucideIcons.settings,
                       color: MechanicColor.primary700,
                     ),
-                    onPressed: () async {
-                      final authService = Provider.of<AuthService>(
-                        context,
-                        listen: false,
-                      );
-                      await authService.signOut();
-                    },
+                    onPressed: () => setState(() => _currentIndex = 4),
                   ),
                 ],
               ),

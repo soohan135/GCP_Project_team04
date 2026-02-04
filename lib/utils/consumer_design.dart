@@ -227,7 +227,8 @@ class PixiePainter extends CustomPainter {
 }
 
 class ConsumerHeader extends StatelessWidget implements PreferredSizeWidget {
-  const ConsumerHeader({super.key});
+  final VoidCallback? onSettingsTap;
+  const ConsumerHeader({super.key, this.onSettingsTap});
 
   @override
   Widget build(BuildContext context) {
@@ -301,7 +302,7 @@ class ConsumerHeader extends StatelessWidget implements PreferredSizeWidget {
                 size: 22,
                 color: ConsumerColor.slate400,
               ),
-              onPressed: () {},
+              onPressed: onSettingsTap,
               hoverColor: Colors.white,
             ),
           ),
