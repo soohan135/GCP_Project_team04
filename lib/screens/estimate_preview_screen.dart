@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/estimate_provider.dart';
 import 'estimate_detail_screen.dart';
+import '../widgets/custom_search_bar.dart';
+import '../utils/consumer_design.dart';
 
 class EstimatePreviewScreen extends StatefulWidget {
   const EstimatePreviewScreen({super.key});
@@ -13,6 +15,7 @@ class EstimatePreviewScreen extends StatefulWidget {
 
 class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
   final ScrollController _scrollController = ScrollController();
+  String _searchQuery = '';
 
   @override
   void dispose() {
@@ -24,38 +27,48 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
   Widget build(BuildContext context) {
     return Consumer<EstimateProvider>(
       builder: (context, provider, child) {
-        final estimates = provider.estimates;
+        final allEstimates = provider.estimates;
+        final filteredEstimates = allEstimates.where((est) {
+          final query = _searchQuery.toLowerCase();
+          return est.title.toLowerCase().contains(query) ||
+              est.status.toLowerCase().contains(query);
+        }).toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 100), // Header spacing
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: CustomSearchBar(
+                onSearch: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '견적 미리보기',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  if (estimates.isNotEmpty) ...[
+                  Text('견적 미리보기', style: ConsumerTypography.h1),
+                  if (filteredEstimates.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
-                      '총 ${estimates.length}개의 저장된 견적이 있습니다.',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.blueAccent,
-                      ),
+                      '총 ${filteredEstimates.length}개의 저장된 견적이 있습니다.',
+                      style: ConsumerTypography.tag,
                     ),
                   ],
                 ],
               ),
             ),
             Expanded(
-              child: provider.isLoading && estimates.isEmpty
+              child: provider.isLoading && allEstimates.isEmpty
                   ? const Center(child: CircularProgressIndicator())
-                  : estimates.isEmpty
-                  ? _buildEmptyView()
+                  : filteredEstimates.isEmpty
+                  ? _buildEmptyView(isSearch: _searchQuery.isNotEmpty)
                   : Scrollbar(
                       controller: _scrollController,
                       thickness: 6,
@@ -67,9 +80,9 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                           horizontal: 24,
                           vertical: 16,
                         ),
-                        itemCount: estimates.length,
+                        itemCount: filteredEstimates.length,
                         itemBuilder: (context, index) {
-                          final est = estimates[index];
+                          final est = filteredEstimates[index];
                           return _buildEstimateItem(context, est);
                         },
                       ),
@@ -81,14 +94,21 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
     );
   }
 
-  Widget _buildEmptyView() {
-    return const Center(
+  Widget _buildEmptyView({bool isSearch = false}) {
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.fileText, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
-          Text('아직 저장된 견적이 없습니다.', style: TextStyle(color: Colors.grey)),
+          Icon(
+            isSearch ? Icons.search_off : LucideIcons.fileText,
+            size: 64,
+            color: Colors.grey,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            isSearch ? '검색 결과가 없습니다.' : '아직 저장된 견적이 없습니다.',
+            style: const TextStyle(color: Colors.grey),
+          ),
         ],
       ),
     );
@@ -108,9 +128,9 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Theme.of(context).dividerColor),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: ConsumerColor.slate100),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.02),
@@ -201,36 +221,31 @@ class _EstimatePreviewScreenState extends State<EstimatePreviewScreen> {
                     children: [
                       Text(
                         est.title,
-                        style: const TextStyle(
+                        style: ConsumerTypography.bodyLarge.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontSize: 18,
+                          color: ConsumerColor.slate800,
                         ),
                       ),
+                      const SizedBox(height: 4),
                       if (est.realPrice != null) ...[
                         Text(
                           '예상: ${est.price}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
+                          style: ConsumerTypography.bodySmall.copyWith(
                             decoration: TextDecoration.lineThrough,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           est.realPrice!,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                          style: ConsumerTypography.h2.copyWith(
                             color: Colors.green,
                           ),
                         ),
                       ] else ...[
                         Text(
                           est.price,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blueAccent,
+                          style: ConsumerTypography.h2.copyWith(
+                            color: ConsumerColor.brand600,
                           ),
                         ),
                       ],

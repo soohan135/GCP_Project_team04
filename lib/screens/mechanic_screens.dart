@@ -4,9 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/app_user.dart';
 import '../models/review.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../services/chat_service.dart';
-import 'chat_detail_screen.dart';
+import '../services/schedule_service.dart';
+import '../utils/mechanic_design.dart';
 
 class ReceivedRequestsScreen extends StatelessWidget {
   final AppUser appUser;
@@ -14,75 +13,85 @@ class ReceivedRequestsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final shopId = appUser.serviceCenterId;
-
-    if (shopId == null) {
-      return const Scaffold(body: Center(child: Text('소속된 정비소가 없습니다.')));
-    }
-
+    // Transparent Scaffold to show WrenchBackground from MainLayout
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '견적 요청 현황',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '새로 들어온 요청들을 확인하고 견적을 보내보세요.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('service_centers')
-                    .doc(shopId)
-                    .collection('receive_estimate')
-                    .orderBy('createdAt', descending: true)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+      backgroundColor: Colors.transparent,
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('service_centers')
+            .doc(appUser.serviceCenterId)
+            .collection('receive_estimate')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: MechanicColor.primary500),
+            );
+          }
 
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return _buildEmptyState(
-                      icon: LucideIcons.inbox,
-                      title: '받은 요청이 없습니다.',
-                      subtitle: '고객님이 보내신 견적 요청이 여기에 표시됩니다.',
-                    );
-                  }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return _buildEmptyState(
+              icon: LucideIcons.inbox,
+              title: '받은 요청이 없습니다.',
+              subtitle: '고객님이 보내신 견적 요청이 여기에 표시됩니다.',
+            );
+          }
 
-                  return ListView.builder(
-                    itemCount: snapshot.data!.docs.length,
-                    itemBuilder: (context, index) {
-                      final doc = snapshot.data!.docs[index];
-                      final data = doc.data() as Map<String, dynamic>;
-                      return _buildRequestCard(context, data, doc.id);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          return ListView.builder(
+            padding: const EdgeInsets.all(24.0),
+            itemCount: snapshot.data!.docs.length,
+            itemBuilder: (context, index) {
+              final doc = snapshot.data!.docs[index];
+              final data = doc.data() as Map<String, dynamic>;
+              return _ReceivedRequestCard(
+                data: data,
+                requestId: doc.id,
+                appUser: appUser,
+              );
+            },
+          );
+        },
       ),
     );
   }
 
-  Widget _buildRequestCard(
-    BuildContext context,
-    Map<String, dynamic> data,
-    String requestId,
-  ) {
-    final theme = Theme.of(context);
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 64, color: MechanicColor.primary300),
+          const SizedBox(height: 24),
+          Text(title, style: MechanicTypography.subheader),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: MechanicTypography.body.copyWith(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReceivedRequestCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final String requestId;
+  final AppUser appUser;
+
+  const _ReceivedRequestCard({
+    required this.data,
+    required this.requestId,
+    required this.appUser,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final status = data['status'] ?? 'pending';
     final isResponded = status == 'responded';
     final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
@@ -90,21 +99,26 @@ class ReceivedRequestsScreen extends StatelessWidget {
         ? DateFormat('MM/dd HH:mm').format(createdAt)
         : '';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    // Status Badge Helpers
+    Color badgeBg;
+    Color badgeText;
+    String badgeLabel;
+
+    if (status == 'reserved') {
+      badgeBg = Colors.green.shade50;
+      badgeText = Colors.green.shade700;
+      badgeLabel = '예약 확정';
+    } else if (isResponded) {
+      badgeBg = MechanicColor.primary50;
+      badgeText = MechanicColor.primary500;
+      badgeLabel = '견적 발송됨';
+    } else {
+      badgeBg = MechanicColor.primary100;
+      badgeText = MechanicColor.primary700;
+      badgeLabel = '견적 요청';
+    }
+
+    return MechanicCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -112,15 +126,18 @@ class ReceivedRequestsScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.blueAccent.withOpacity(0.1),
+                  color: badgeBg,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  '견적 요청',
+                child: Text(
+                  badgeLabel,
                   style: TextStyle(
-                    color: Colors.blueAccent,
+                    color: badgeText,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -128,21 +145,25 @@ class ReceivedRequestsScreen extends StatelessWidget {
               ),
               Text(
                 dateStr,
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: const TextStyle(
+                  color: MechanicColor.primary400,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Image
               if (data['imageUrl'] != null)
                 GestureDetector(
                   onTap: () => _showImageDialog(context, data['imageUrl']),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Hero(
-                      tag: data['imageUrl'],
+                      tag: data['imageUrl'] + requestId, // Unique tag
                       child: Image.network(
                         data['imageUrl'],
                         width: 80,
@@ -157,60 +178,143 @@ class ReceivedRequestsScreen extends StatelessWidget {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: theme.dividerColor,
+                    color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(LucideIcons.image, color: Colors.grey),
                 ),
               const SizedBox(width: 16),
+              // Content
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       '요청 고객: ${data['userEmail'] ?? '익명'}',
-                      style: const TextStyle(
+                      style: MechanicTypography.body.copyWith(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '요청 사항: ${data['userRequest'] ?? '없음'}',
-                      style: TextStyle(
-                        color: Colors.grey.shade800,
-                        fontSize: 14,
+                      data['userRequest'] ?? '요청 사항 없음',
+                      style: MechanicTypography.body.copyWith(
+                        color: Colors.grey.shade700,
                         height: 1.4,
                       ),
-                      maxLines: 3,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (status == 'reserved' &&
+                        data['confirmedDate'] != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              LucideIcons.calendarCheck,
+                              size: 14,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '방문 예정: ${DateFormat('yyyy.MM.dd').format((data['confirmedDate'] as Timestamp).toDate())}',
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
+            height: 48,
             child: ElevatedButton(
-              onPressed: isResponded
+              onPressed: isResponded || status == 'reserved'
                   ? null
                   : () => _showEstimateInputDialog(context, data, requestId),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isResponded ? Colors.grey : Colors.blueAccent,
+                backgroundColor: MechanicColor.primary500,
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: MechanicColor.primary100,
+                disabledForegroundColor: MechanicColor.primary600,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 elevation: 0,
               ),
-              child: Text(isResponded ? '견적 전송 완료' : '견적 작성하기'),
+              child: Text(
+                status == 'reserved'
+                    ? '예약 확정됨'
+                    : (isResponded ? '견적 전송 완료' : '견적 보내기'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showImageDialog(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.black.withOpacity(0.9),
+              ),
+            ),
+            Hero(
+              tag: imageUrl + requestId,
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  imageUrl,
+                  width: MediaQuery.of(context).size.width,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            Positioned(
+              right: 20,
+              top: 40,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -230,7 +334,19 @@ class ReceivedRequestsScreen extends StatelessWidget {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            title: const Text('견적 작성'),
+            backgroundColor: Colors.white,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: MechanicColor.primary200, width: 2),
+            ),
+            title: Text(
+              '견적 작성',
+              style: MechanicTypography.headline.copyWith(
+                fontSize: 20,
+                color: Colors.black,
+              ),
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -239,18 +355,29 @@ class ReceivedRequestsScreen extends StatelessWidget {
                   TextField(
                     controller: priceController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
+                    style: const TextStyle(color: Colors.black),
+                    decoration: InputDecoration(
                       labelText: '수리 비용 (원)',
+                      labelStyle: const TextStyle(color: Colors.grey),
                       hintText: '예: 300000',
+                      hintStyle: const TextStyle(
+                        color: MechanicColor.primary300,
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: MechanicColor.primary500),
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: MechanicColor.primary200),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   const Text(
                     '수리가능 일자',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
+                      color: Colors.black,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -268,10 +395,10 @@ class ReceivedRequestsScreen extends StatelessWidget {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.blueAccent.withOpacity(0.05),
+                              color: MechanicColor.primary50,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: Colors.blueAccent.withOpacity(0.2),
+                                color: MechanicColor.primary200,
                               ),
                             ),
                             child: Row(
@@ -279,7 +406,7 @@ class ReceivedRequestsScreen extends StatelessWidget {
                                 const Icon(
                                   LucideIcons.calendar,
                                   size: 16,
-                                  color: Colors.blueAccent,
+                                  color: MechanicColor.primary500,
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -291,6 +418,7 @@ class ReceivedRequestsScreen extends StatelessWidget {
                                     style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
+                                      color: MechanicColor.primary700,
                                     ),
                                   ),
                                 ),
@@ -303,7 +431,7 @@ class ReceivedRequestsScreen extends StatelessWidget {
                                   child: const Icon(
                                     Icons.close,
                                     size: 18,
-                                    color: Colors.grey,
+                                    color: MechanicColor.primary400,
                                   ),
                                 ),
                               ],
@@ -325,7 +453,7 @@ class ReceivedRequestsScreen extends StatelessWidget {
                           return Theme(
                             data: Theme.of(context).copyWith(
                               colorScheme: const ColorScheme.light(
-                                primary: Colors.blueAccent,
+                                primary: MechanicColor.primary500,
                                 onPrimary: Colors.white,
                                 onSurface: Colors.black,
                               ),
@@ -351,26 +479,50 @@ class ReceivedRequestsScreen extends StatelessWidget {
                     icon: const Icon(LucideIcons.plusCircle, size: 18),
                     label: const Text('일자 추가하기'),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.blueAccent,
+                      foregroundColor: MechanicColor.primary600,
                       padding: EdgeInsets.zero,
                     ),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: durationController,
-                    decoration: const InputDecoration(
+                    style: const TextStyle(color: Colors.black),
+                    decoration: InputDecoration(
                       labelText: '예상 소요시간',
+                      labelStyle: const TextStyle(color: Colors.grey),
                       hintText: '예: 2~3일',
+                      hintStyle: const TextStyle(
+                        color: MechanicColor.primary300,
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: MechanicColor.primary500),
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: MechanicColor.primary200),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: descriptionController,
                     maxLines: 3,
-                    decoration: const InputDecoration(
+                    style: const TextStyle(color: Colors.black),
+                    decoration: InputDecoration(
                       labelText: '추가 안내 사항',
+                      labelStyle: const TextStyle(color: Colors.grey),
                       hintText: '부품 재고 확인 필요 등...',
-                      border: OutlineInputBorder(),
+                      hintStyle: const TextStyle(
+                        color: MechanicColor.primary300,
+                      ),
+                      border: const OutlineInputBorder(
+                        borderSide: BorderSide(color: MechanicColor.primary200),
+                      ),
+                      enabledBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: MechanicColor.primary200),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: MechanicColor.primary500),
+                      ),
                     ),
                   ),
                 ],
@@ -379,7 +531,10 @@ class ReceivedRequestsScreen extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('취소'),
+                child: const Text(
+                  '취소',
+                  style: TextStyle(color: MechanicColor.primary400),
+                ),
               ),
               ElevatedButton(
                 onPressed: () async {
@@ -436,7 +591,6 @@ class ReceivedRequestsScreen extends StatelessWidget {
                     });
 
                     // 2. 고객측 유저 문서 하위 response_estimate 서브컬렉션에 저장
-                    // (일관성을 위해 shopId와 estimateId를 조합한 ID 사용)
                     final responseRef = FirebaseFirestore.instance
                         .collection('users')
                         .doc(userId)
@@ -447,20 +601,37 @@ class ReceivedRequestsScreen extends StatelessWidget {
                       'estimateId': estimateId,
                       'shopId': shopId,
                       'shopName': shopName,
-                      'shopAddress': shopAddress, // 정비소 위치
-                      'price': priceController.text.trim(), // 견적 금액
-                      'duration': durationController.text.trim(), // 예상 수리기간
-                      'repairCompletionDates': selectedDates, // 수리가능 날짜 (리스트)
-                      'description': descriptionController.text.trim(), // 세부사항
+                      'shopAddress': shopAddress,
+                      'price': priceController.text.trim(),
+                      'duration': durationController.text.trim(),
+                      'repairCompletionDates': selectedDates,
+                      'description': descriptionController.text.trim(),
                       'createdAt': FieldValue.serverTimestamp(),
                     });
 
                     await batch.commit();
 
+                    // 일정 추가 (Firestore)
+                    try {
+                      final scheduleService = ScheduleService();
+                      for (final date in selectedDates) {
+                        await scheduleService.addSchedule(
+                          shopId: shopId,
+                          date: date,
+                          title: '수리 예정: ${requestData['userEmail'] ?? '고객'}',
+                          description:
+                              '${requestData['userRequest'] ?? '수리 요청'} - ${descriptionController.text}',
+                          customerEmail: requestData['userEmail'] ?? 'unknown',
+                        );
+                      }
+                    } catch (e) {
+                      print('Error adding schedule: $e');
+                    }
+
                     if (!context.mounted) return;
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('견적이 성공적으로 전송되었습니다.')),
+                      const SnackBar(content: Text('견적과 일정이 성공적으로 전송되었습니다.')),
                     );
                   } catch (e) {
                     if (!context.mounted) return;
@@ -469,6 +640,10 @@ class ReceivedRequestsScreen extends StatelessWidget {
                     ).showSnackBar(SnackBar(content: Text('전송 실패: $e')));
                   }
                 },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: MechanicColor.primary500,
+                  foregroundColor: Colors.white,
+                ),
                 child: const Text('보내기'),
               ),
             ],
@@ -477,46 +652,52 @@ class ReceivedRequestsScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  void _showImageDialog(BuildContext context, String imageUrl) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.zero,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: Colors.black.withOpacity(0.9),
-              ),
-            ),
-            Hero(
-              tag: imageUrl,
-              child: InteractiveViewer(
-                minScale: 0.5,
-                maxScale: 4.0,
-                child: Image.network(
-                  imageUrl,
-                  width: MediaQuery.of(context).size.width,
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-            Positioned(
-              right: 20,
-              top: 40,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-          ],
-        ),
+class ReviewManagementScreen extends StatelessWidget {
+  final AppUser appUser;
+  const ReviewManagementScreen({super.key, required this.appUser});
+
+  @override
+  Widget build(BuildContext context) {
+    // Transparent Scaffold to show Wrench from MainLayout
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('service_centers')
+            .doc(appUser.serviceCenterId)
+            .collection('reviews')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: MechanicColor.primary500),
+            );
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return _buildEmptyState(
+              icon: LucideIcons.star,
+              title: '등록된 리뷰가 없습니다.',
+              subtitle: '작성된 리뷰와 평점을 관리할 수 있습니다.',
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(24.0),
+            itemCount: snapshot.data!.docs.length,
+            itemBuilder: (context, index) {
+              final doc = snapshot.data!.docs[index];
+              final review = Review.fromMap(
+                doc.data() as Map<String, dynamic>,
+                doc.id,
+              );
+              return _ReviewCard(review: review);
+            },
+          );
+        },
       ),
     );
   }
@@ -530,123 +711,41 @@ class ReceivedRequestsScreen extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 64, color: Colors.blueAccent.withOpacity(0.5)),
+          Icon(icon, size: 64, color: MechanicColor.primary300),
           const SizedBox(height: 24),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          Text(title, style: MechanicTypography.subheader),
           const SizedBox(height: 8),
-          Text(subtitle, style: const TextStyle(color: Colors.grey)),
+          Text(
+            subtitle,
+            style: MechanicTypography.body.copyWith(color: Colors.grey),
+          ),
         ],
       ),
     );
   }
 }
 
-class ReviewManagementScreen extends StatelessWidget {
-  final AppUser appUser;
-  const ReviewManagementScreen({super.key, required this.appUser});
+class _ReviewCard extends StatelessWidget {
+  final Review review;
+  const _ReviewCard({required this.review});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final shopId = appUser.serviceCenterId;
-
-    if (shopId == null) {
-      return const Scaffold(body: Center(child: Text('소속된 정비소가 없습니다.')));
-    }
-
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '리뷰 관리',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '정비소에 등록된 고객님들의 소중한 리뷰입니다.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('service_centers')
-                    .doc(shopId)
-                    .collection('reviews')
-                    .orderBy('createdAt', descending: true)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return _buildEmptyState(
-                      icon: LucideIcons.star,
-                      title: '등록된 리뷰가 없습니다.',
-                      subtitle: '작성된 리뷰와 평점을 관리할 수 있습니다.',
-                    );
-                  }
-
-                  return ListView.builder(
-                    itemCount: snapshot.data!.docs.length,
-                    itemBuilder: (context, index) {
-                      final doc = snapshot.data!.docs[index];
-                      final review = Review.fromMap(
-                        doc.data() as Map<String, dynamic>,
-                        doc.id,
-                      );
-                      return _buildReviewCard(context, review);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReviewCard(BuildContext context, Review review) {
-    final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.dividerColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return MechanicCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               CircleAvatar(
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                radius: 18,
+                backgroundColor: MechanicColor.primary100,
+                radius: 20,
                 child: Text(
                   review.userName.isNotEmpty ? review.userName[0] : '?',
-                  style: TextStyle(
-                    color: theme.colorScheme.primary,
+                  style: const TextStyle(
+                    color: MechanicColor.primary700,
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: 16,
                   ),
                 ),
               ),
@@ -657,7 +756,7 @@ class ReviewManagementScreen extends StatelessWidget {
                   children: [
                     Text(
                       review.userName,
-                      style: const TextStyle(
+                      style: MechanicTypography.body.copyWith(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
                       ),
@@ -695,7 +794,7 @@ class ReviewManagementScreen extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             review.comment,
-            style: const TextStyle(fontSize: 14, height: 1.5),
+            style: MechanicTypography.body.copyWith(height: 1.5),
           ),
           if (review.imageUrl != null) ...[
             const SizedBox(height: 16),
@@ -709,235 +808,6 @@ class ReviewManagementScreen extends StatelessWidget {
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: Colors.amber.withOpacity(0.5)),
-          const SizedBox(height: 24),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(subtitle, style: const TextStyle(color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-}
-
-class ChatScreen extends StatelessWidget {
-  final bool isMechanic;
-  final String? shopId;
-  const ChatScreen({super.key, this.isMechanic = false, this.shopId});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-    final effectiveCurrentId = isMechanic
-        ? (shopId ?? currentUserId)
-        : currentUserId;
-
-    return Scaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '채팅 상담',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  isMechanic
-                      ? '고객님들과 실시간으로 소통이 가능합니다.'
-                      : '정비소와 실시간으로 소통이 가능합니다.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: ChatService().getChatRooms(userId: effectiveCurrentId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                final rooms = snapshot.data!.docs;
-
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  itemCount: rooms.length,
-                  separatorBuilder: (context, index) =>
-                      const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final roomData =
-                        rooms[index].data() as Map<String, dynamic>;
-                    final roomId = rooms[index].id;
-                    final participants = List<String>.from(
-                      roomData['participants'] ?? [],
-                    );
-                    final otherUserId = participants.firstWhere(
-                      (id) => id != effectiveCurrentId,
-                      orElse: () => '',
-                    );
-
-                    return FutureBuilder<String>(
-                      future: _fetchUserName(otherUserId),
-                      builder: (context, nameSnapshot) {
-                        final otherUserName = nameSnapshot.data ?? '로딩 중...';
-                        final lastMessage = roomData['lastMessage'] ?? '';
-                        final lastTime =
-                            roomData['lastMessageAt'] as Timestamp?;
-
-                        return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 0,
-                          ),
-                          leading: CircleAvatar(
-                            backgroundColor: isMechanic
-                                ? Colors.blueAccent.withOpacity(0.1)
-                                : Colors.orangeAccent.withOpacity(0.1),
-                            child: Icon(
-                              isMechanic
-                                  ? LucideIcons.user
-                                  : LucideIcons.warehouse,
-                              color: isMechanic
-                                  ? Colors.blueAccent
-                                  : Colors.orangeAccent,
-                            ),
-                          ),
-                          title: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                otherUserName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              if (lastTime != null)
-                                Text(
-                                  _formatTime(lastTime.toDate()),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          subtitle: Text(
-                            lastMessage.isNotEmpty
-                                ? lastMessage
-                                : '대화 내용이 없습니다.',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ChatDetailScreen(
-                                  roomId: roomId,
-                                  otherUserName: otherUserName,
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<String> _fetchUserName(String uid) async {
-    if (uid.isEmpty) return '알 수 없음';
-
-    // 1. 유저 컬렉션에서 먼저 확인
-    final userSnap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get();
-    if (userSnap.exists) {
-      return userSnap.data()?['displayName'] ?? '사용자';
-    }
-
-    // 2. 없으면 정비소 컬렉션에서 확인
-    final shopSnap = await FirebaseFirestore.instance
-        .collection('service_centers')
-        .doc(uid)
-        .get();
-    if (shopSnap.exists) {
-      return shopSnap.data()?['name'] ?? '정비소';
-    }
-
-    return '알 수 없음';
-  }
-
-  String _formatTime(DateTime time) {
-    final now = DateTime.now();
-    final difference = now.difference(time);
-    if (difference.inDays == 0) {
-      return DateFormat('HH:mm').format(time);
-    } else if (difference.inDays < 7) {
-      return DateFormat('E').format(time);
-    } else {
-      return DateFormat('MM/dd').format(time);
-    }
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(LucideIcons.messageCircle, size: 64, color: Colors.green),
-          const SizedBox(height: 24),
-          const Text(
-            '진행 중인 채팅이 없습니다.',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            isMechanic ? '받은 요청 이력을 통해 소통해보세요.' : '정비소 응답 이력을 통해 소통해보세요.',
-            style: const TextStyle(color: Colors.grey),
-          ),
         ],
       ),
     );

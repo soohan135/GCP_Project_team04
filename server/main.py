@@ -27,7 +27,7 @@ def parse_filename(filename):
         return parts[0]
     return None
 
-def predict_damage(image_source):
+def predict_damage(image_source, user_id=None):
     """
     외부 AI Cloud Run 서비스에 이미지를 전송하여 분석 결과를 받아옵니다.
     image_source: 파일 경로(str) 또는 파일 객체(FileStorage 등)
@@ -55,22 +55,28 @@ def predict_damage(image_source):
         # 2. 데이터 구성 (경로 vs 스트림 분기 처리)
         files = {}
         if isinstance(image_source, str):
-            # 문자열이면 파일 경로로 간주 (기존 로직)
+            # 문자열이면 파일 경로로 간주
             file_handle = open(image_source, 'rb')
-            files = {'file': file_handle}
+            mime_type = 'image/jpeg' if image_source.lower().endswith(('.jpg', '.jpeg')) else 'image/png'
+            files = {'file': (os.path.basename(image_source), file_handle, mime_type)}
         else:
             # 파일 객체인 경우 (스트림 중계)
-            # requests에 (filename, fileobj, content_type) 튜플 전달
             filename = getattr(image_source, 'filename', 'unknown.jpg')
             content_type = getattr(image_source, 'content_type', 'application/octet-stream')
             stream = getattr(image_source, 'stream', image_source)
             files = {'file': (filename, stream, content_type)}
 
         # 3. 요청 전송
+        target_url = AI_SERVICE_URL.rstrip('/') + '/predict'
+        
+        data = {'car_model': 'unknown'}
+        if user_id:
+            data['user_id'] = user_id
+
         response = requests.post(
-            AI_SERVICE_URL, 
+            target_url, 
             files=files, 
-            data={'car_model': 'unknown'},
+            data=data,
             headers=headers
         )
             
@@ -156,37 +162,66 @@ def analyze_crashed_car(cloud_event):
 
     print(f"Detected UID: {uid}")
 
+    print(f"Detected UID: {uid}")
+
     storage_client = storage.Client()
-    temp_local_path = f"/tmp/{file_basename}"
 
     try:
-        # 4. GCS에서 이미지 다운로드
+        # 4. GCS에서 이미지 다운로드 (메모리로 바로 로드)
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(file_name)
-        blob.download_to_filename(temp_local_path)
-        print(f"Downloaded {file_name} to {temp_local_path}")
+        
+        # 이미지를 메모리(BytesIO)에 다운로드
+        from io import BytesIO
+        image_data = BytesIO()
+        blob.download_to_file(image_data)
+        image_data.seek(0) # 파일 포인터를 처음으로 이동
+        
+        print(f"Downloaded {file_name} to memory")
 
         # 5. AI 추론 실행 (외부 서비스 호출)
-        prediction_result = predict_damage(temp_local_path)
+        # predict_damage 함수를 인메모리 방식에 맞게 호출하도록 수정하거나, 
+        # 직접 호출 로직을 여기로 가져오는 것이 좋음. 
+        # 여기서는 predict_damage를 재사용하기 위해 함수 내부를 수정하는 대신 직접 호출 로직 구현
+
+        if not AI_SERVICE_URL or "YOUR_AI_SERVICE_URL_HERE" in AI_SERVICE_URL:
+             raise ValueError("AI_SERVICE_URL not configured")
         
-        # 원래 이미지 URL 추가 (앱에서 표시용)
-        # 참고: 이 URL은 공개 권한이 있거나, 앱에서 Signed URL을 생성해야 접근 가능할 수 있음
+        # ID Token 생성
+        auth_req = google.auth.transport.requests.Request()
+        id_token = google.oauth2.id_token.fetch_id_token(auth_req, AI_SERVICE_URL)
+        headers = {"Authorization": f"Bearer {id_token}"}
+        
+        # 요청 전송
+        target_url = AI_SERVICE_URL.rstrip('/') + '/predict'
+        
+        mime_type = 'image/jpeg' if file_name.lower().endswith(('.jpg', '.jpeg')) else 'image/png'
+        files = {'file': (file_basename, image_data, mime_type)}
+        data = {'car_model': 'unknown', 'user_id': uid}
+        
+        print(f"Sending request to {target_url} with user_id={uid}")
+        
+        response = requests.post(
+            target_url,
+            files=files,
+            data=data,
+            headers=headers
+        )
+        
+        response.raise_for_status()
+        prediction_result = response.json()
+        
+        # 원래 이미지 URL 추가
         download_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/crashed_car_picture%2F{file_basename}?alt=media"
         prediction_result['imageUrl'] = download_url
         
-        # 6. 결과 로그 출력 (추후 Firestore 저장 로직으로 대체 필요)
+        # 6. 결과 로그 출력
         print(f"Analysis completed for user: {uid}")
         print(f"Prediction Result: {prediction_result}")
 
     except Exception as e:
         print(f"Error processing image: {e}")
         raise e
-    finally:
-        # 임시 파일 삭제
-        if os.path.exists(temp_local_path):
-            os.remove(temp_local_path)
-            print(f"Removed temporary file: {temp_local_path}")
-
 @functions_framework.http
 def analyze_image_http(request):
     """

@@ -1,0 +1,7 @@
+﻿Analyzing GCP_Project_team04...                                 
+
+   info - Don't invoke 'print' in production code - lib\services\car_center_service.dart:61:7 - avoid_print
+   info - Use interpolation to compose strings and values - lib\services\service_center_service.dart:59:45 - prefer_interpolation_to_compose_strings
+   info - Don't invoke 'print' in production code - lib\services\storage_service.dart:26:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\storage_service.dart:69:7 - avoid_print
+

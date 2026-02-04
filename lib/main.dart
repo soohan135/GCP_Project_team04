@@ -16,12 +16,15 @@ import 'screens/estimate_preview_screen.dart';
 import 'screens/nearby_shops_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/search_results_screen.dart';
-import 'widgets/custom_search_bar.dart';
 import 'models/app_user.dart';
 import 'screens/role_selection_screen.dart';
 import 'screens/mechanic_screens.dart';
 import 'screens/shop_responses_screen.dart';
+import 'screens/chat_screen.dart';
+import 'screens/schedule_screen.dart';
+import 'utils/mechanic_design.dart';
+import 'utils/consumer_design.dart';
+import 'dart:ui';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -153,6 +156,7 @@ class _MainLayoutState extends State<MainLayout> {
   List<Widget> get _screens {
     if (widget.appUser.role == UserRole.mechanic) {
       return [
+        ScheduleScreen(appUser: widget.appUser),
         ReceivedRequestsScreen(appUser: widget.appUser),
         ReviewManagementScreen(appUser: widget.appUser),
         ChatScreen(isMechanic: true, shopId: widget.appUser.serviceCenterId),
@@ -174,144 +178,195 @@ class _MainLayoutState extends State<MainLayout> {
   Widget build(BuildContext context) {
     final isMechanic = widget.appUser.role == UserRole.mechanic;
 
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: isMechanic ? 80 : 120,
-        backgroundColor: Theme.of(context).cardColor,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        flexibleSpace: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isMechanic ? Colors.orangeAccent : Colors.black,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          LucideIcons.car,
-                          color: Colors.white,
-                          size: 24,
+    // Determine title for Mechanic based on index
+    String mechanicTitle = '정비사 관리 시스템';
+    if (isMechanic) {
+      switch (_currentIndex) {
+        case 0:
+          mechanicTitle = '일정 관리';
+          break;
+        case 1:
+          mechanicTitle = '견적 요청 현황';
+          break;
+        case 2:
+          mechanicTitle = '리뷰 관리';
+          break;
+        case 3:
+          mechanicTitle = '채팅';
+          break;
+        case 4:
+          mechanicTitle = '설정';
+          break;
+      }
+    }
+
+    final consumerHeader = ConsumerHeader(
+      onSettingsTap: () => setState(() => _currentIndex = 5),
+    );
+
+    PreferredSizeWidget? mechanicAppBar;
+    if (isMechanic) {
+      mechanicAppBar = PreferredSize(
+        preferredSize: const Size.fromHeight(80),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              color: MechanicColor.primary50.withValues(alpha: 0.8),
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 24,
+                right: 24,
+                bottom: 16,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: MechanicColor.pointGradient,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      LucideIcons.car,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'CarFix Pro',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: MechanicColor.primary700,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isMechanic ? 'CarFix Pro' : 'CarFix',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                            height: 1.1,
-                          ),
+                      Text(
+                        mechanicTitle,
+                        style: MechanicTypography.subheader.copyWith(
+                          fontWeight: FontWeight.bold,
+                          height: 1.1,
                         ),
-                        Text(
-                          isMechanic ? '정비사 관리 시스템' : 'AI 견적 시스템',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(
-                        LucideIcons.settings,
-                        color: Colors.grey,
                       ),
-                      onPressed: () =>
-                          setState(() => _currentIndex = isMechanic ? 3 : 5),
+                    ],
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(
+                      LucideIcons.settings,
+                      color: MechanicColor.primary700,
                     ),
-                  ],
-                ),
-                if (!isMechanic) ...[
-                  const SizedBox(height: 12),
-                  CustomSearchBar(
-                    onSubmitted: (value) {
-                      if (value.isNotEmpty) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                SearchResultsScreen(query: value),
-                          ),
-                        );
-                      }
-                    },
+                    onPressed: () => setState(() => _currentIndex = 4),
                   ),
                 ],
-              ],
-            ),
-          ),
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(50),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Theme.of(context).dividerColor),
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: isMechanic
-                  ? [
-                      _buildNavItem(0, '받은 요청', LucideIcons.inbox),
-                      _buildNavItem(1, '리뷰 관리', LucideIcons.star),
-                      _buildNavItem(2, '채팅', LucideIcons.messageCircle),
-                    ]
-                  : [
-                      _buildNavItem(0, '홈', LucideIcons.home),
-                      _buildNavItem(1, '견적 미리보기', LucideIcons.fileText),
-                      _buildNavItem(2, '정비소 응답', LucideIcons.clipboardList),
-                      _buildNavItem(3, '채팅', LucideIcons.messageCircle),
-                      _buildNavItem(4, '근처 정비소', LucideIcons.mapPin),
-                    ],
-            ),
           ),
         ),
-      ),
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      );
+    }
+
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: isMechanic
+          ? MechanicColor.background
+          : ConsumerColor.background,
+      appBar: isMechanic ? mechanicAppBar : consumerHeader,
+      body: isMechanic
+          ? WrenchBackground(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 80),
+                child: IndexedStack(index: _currentIndex, children: _screens),
+              ),
+            )
+          : SearchBackground(
+              child: IndexedStack(index: _currentIndex, children: _screens),
+            ),
+      bottomNavigationBar: isMechanic
+          ? Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                border: Border(
+                  top: BorderSide(color: Theme.of(context).dividerColor),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).padding.bottom,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(0, '일정', LucideIcons.calendar),
+                  _buildNavItem(1, '받은 요청', LucideIcons.inbox),
+                  _buildNavItem(2, '리뷰 관리', LucideIcons.star),
+                  _buildNavItem(3, '채팅', LucideIcons.messageCircle),
+                ],
+              ),
+            )
+          : ConsumerBottomNav(
+              currentIndex: _currentIndex,
+              onTap: (index) => setState(() => _currentIndex = index),
+            ),
     );
   }
 
   Widget _buildNavItem(int index, String label, IconData icon) {
     bool isActive = _currentIndex == index;
+    final isMechanic = widget.appUser.role == UserRole.mechanic;
+
+    // CarFix Pro Orange Theme
+    final activeColor = isMechanic
+        ? MechanicColor
+              .primary600 // Using Design Token
+        : Colors.blueAccent;
+    final activeBgColor = isMechanic
+        ? MechanicColor
+              .primary100 // Using Design Token
+        : Colors.blue.withValues(alpha: 0.1);
+    final inactiveColor = Colors.grey;
+
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = index),
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isActive ? Colors.blueAccent : Colors.transparent,
-              width: 2,
-            ),
-          ),
-        ),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isActive ? Colors.blueAccent : Colors.grey,
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isActive ? activeBgColor : Colors.transparent,
+              ),
+              child: Center(
+                child: Icon(
+                  icon,
+                  size: 24,
+                  color: isActive ? activeColor : inactiveColor,
+                ),
+              ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: isActive ? Colors.blueAccent : Colors.grey,
+                color: isActive ? activeColor : inactiveColor,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                fontSize: 12,
               ),
             ),
           ],

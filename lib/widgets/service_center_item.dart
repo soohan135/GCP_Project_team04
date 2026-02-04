@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:gcp_project_team_04/services/chat_service.dart';
+import 'package:provider/provider.dart';
 import '../models/service_center.dart';
 import '../models/review.dart';
 import '../screens/write_review_screen.dart';
-
 import '../screens/shop_map_screen.dart';
+import '../screens/chat_detail_screen.dart';
 
 class ServiceCenterItem extends StatelessWidget {
   final ServiceCenter shop;
@@ -17,6 +21,52 @@ class ServiceCenterItem extends StatelessWidget {
     required this.isExpanded,
     required this.onTap,
   });
+
+  Future<void> _startChat(BuildContext context) async {
+    final chatService = ChatService();
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (currentUserId == null) {
+      // Handle user not logged in
+      return;
+    }
+
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('serviceCenterId', isEqualTo: shop.id)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final mechanic = querySnapshot.docs.first;
+        final mechanicId = mechanic.id;
+        final mechanicName = mechanic.data()['displayName'] ?? '정비사';
+
+        final roomId = await chatService.getOrCreateChatRoom(mechanicId);
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatDetailScreen(
+              roomId: roomId,
+              otherUserName: shop.name,
+            ),
+          ),
+        );
+      } else {
+        // Handle no mechanic found
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('해당 정비소에 연결된 정비사가 없습니다.')),
+        );
+      }
+    } catch (e) {
+      // Handle error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('채팅 시작에 실패했습니다: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -205,28 +255,53 @@ class ServiceCenterItem extends StatelessWidget {
                   (review) => _buildReviewItem(context, review),
                 ),
               const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => WriteReviewScreen(shop: shop),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => WriteReviewScreen(shop: shop),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        '리뷰 쓰러 가기',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
                   ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  '리뷰 쓰러 가기',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _startChat(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        '상담하기',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -381,3 +456,4 @@ class ServiceCenterItem extends StatelessWidget {
     );
   }
 }
+
