@@ -24,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _imageUrl;
   bool _isAnalyzing = false;
   bool _isUploading = false;
+  bool _showPartImage = false; // [추가] 부품 이미지 전환 상태
   Map<String, dynamic>? _result;
   final StorageService _storageService = StorageService();
   StreamSubscription? _subscription;
@@ -43,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _startProgressSimulation() {
     setState(() {
       _analysisProgress = 0.0;
+      _showPartImage = false; // 이미지 업로드 시 초기화
     });
     _progressTimer?.cancel();
     _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
@@ -200,7 +202,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   _result = {
                     'damage': damageDescription,
                     'estimatedPrice': formattedPrice,
-                    'analyzedImageUrl': data['damageImageUrl'], // AI 서버가 저장한 필드
+                    'analyzedImageUrl': data['damageImageUrl'],
+                    'partImageUrl': data['partImageUrl'], // [추가] 부품 분석 이미지 URL
                     'recommendations': [
                       '손상 부위 정밀 점검 필요',
                       '주변 부위 도장 상태 확인',
@@ -633,14 +636,75 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 24),
           if (_result!['analyzedImageUrl'] != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.network(
-                _result!['analyzedImageUrl'],
-                width: double.infinity,
-                height: 200,
-                fit: BoxFit.cover,
-              ),
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    _showPartImage && _result!['partImageUrl'] != null
+                        ? _result!['partImageUrl']
+                        : _result!['analyzedImageUrl'],
+                    width: double.infinity,
+                    height: 200,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                // 현재 이미지 상태 표시 라벨
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _showPartImage ? '부품 분석' : '전체 분석',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                // 이미지 전환 버튼 (partImageUrl이 있을 때만 표시)
+                if (_result!['partImageUrl'] != null)
+                  Positioned(
+                    bottom: 12,
+                    right: 12,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _showPartImage = !_showPartImage;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          _showPartImage
+                              ? LucideIcons.image
+                              : LucideIcons.component,
+                          color: ConsumerColor.brand500,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           const SizedBox(height: 24),
           Text('분석 결과', style: ConsumerTypography.bodySmall),
