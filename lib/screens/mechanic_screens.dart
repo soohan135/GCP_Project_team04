@@ -335,7 +335,7 @@ class _ReceivedRequestCard extends StatelessWidget {
         builder: (context, setDialogState) {
           return AlertDialog(
             backgroundColor: Colors.white,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
               side: const BorderSide(color: MechanicColor.primary200, width: 2),
@@ -344,7 +344,7 @@ class _ReceivedRequestCard extends StatelessWidget {
               '견적 작성',
               style: MechanicTypography.headline.copyWith(
                 fontSize: 20,
-                color: MechanicColor.primary600,
+                color: Colors.black,
               ),
             ),
             content: SingleChildScrollView(
@@ -355,12 +355,10 @@ class _ReceivedRequestCard extends StatelessWidget {
                   TextField(
                     controller: priceController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: MechanicColor.primary700),
+                    style: const TextStyle(color: Colors.black),
                     decoration: InputDecoration(
                       labelText: '수리 비용 (원)',
-                      labelStyle: const TextStyle(
-                        color: MechanicColor.primary600,
-                      ),
+                      labelStyle: const TextStyle(color: Colors.grey),
                       hintText: '예: 300000',
                       hintStyle: const TextStyle(
                         color: MechanicColor.primary300,
@@ -379,7 +377,7 @@ class _ReceivedRequestCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: MechanicColor.primary600,
+                      color: Colors.black,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -488,12 +486,10 @@ class _ReceivedRequestCard extends StatelessWidget {
                   const SizedBox(height: 16),
                   TextField(
                     controller: durationController,
-                    style: const TextStyle(color: MechanicColor.primary700),
+                    style: const TextStyle(color: Colors.black),
                     decoration: InputDecoration(
                       labelText: '예상 소요시간',
-                      labelStyle: const TextStyle(
-                        color: MechanicColor.primary600,
-                      ),
+                      labelStyle: const TextStyle(color: Colors.grey),
                       hintText: '예: 2~3일',
                       hintStyle: const TextStyle(
                         color: MechanicColor.primary300,
@@ -510,12 +506,10 @@ class _ReceivedRequestCard extends StatelessWidget {
                   TextField(
                     controller: descriptionController,
                     maxLines: 3,
-                    style: const TextStyle(color: MechanicColor.primary700),
+                    style: const TextStyle(color: Colors.black),
                     decoration: InputDecoration(
                       labelText: '추가 안내 사항',
-                      labelStyle: const TextStyle(
-                        color: MechanicColor.primary600,
-                      ),
+                      labelStyle: const TextStyle(color: Colors.grey),
                       hintText: '부품 재고 확인 필요 등...',
                       hintStyle: const TextStyle(
                         color: MechanicColor.primary300,
