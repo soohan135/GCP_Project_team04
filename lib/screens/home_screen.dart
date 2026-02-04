@@ -636,75 +636,30 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 24),
           if (_result!['analyzedImageUrl'] != null)
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.network(
-                    _showPartImage && _result!['partImageUrl'] != null
-                        ? _result!['partImageUrl']
-                        : _result!['analyzedImageUrl'],
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                children: [
+                  // 기본 분석 이미지 (하단)
+                  Image.network(
+                    _result!['analyzedImageUrl'],
                     width: double.infinity,
                     height: 200,
                     fit: BoxFit.cover,
                   ),
-                ),
-                // 현재 이미지 상태 표시 라벨
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _showPartImage ? '부품 분석' : '전체 분석',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                  // 부품 분석 이미지 (상단, 투명도 적용)
+                  if (_result!['partImageUrl'] != null)
+                    Opacity(
+                      opacity: 0.6, // 투명도 조절로 두 이미지를 합성한 것처럼 보여줌
+                      child: Image.network(
+                        _result!['partImageUrl'],
+                        width: double.infinity,
+                        height: 200,
+                        fit: BoxFit.cover,
                       ),
                     ),
-                  ),
-                ),
-                // 이미지 전환 버튼 (partImageUrl이 있을 때만 표시)
-                if (_result!['partImageUrl'] != null)
-                  Positioned(
-                    bottom: 12,
-                    right: 12,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _showPartImage = !_showPartImage;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          _showPartImage
-                              ? LucideIcons.image
-                              : LucideIcons.component,
-                          color: ConsumerColor.brand500,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           const SizedBox(height: 24),
           Text('분석 결과', style: ConsumerTypography.bodySmall),
