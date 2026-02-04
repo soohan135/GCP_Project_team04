@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gcp_project_team_04/providers/estimate_provider.dart';
+import 'package:gcp_project_team_04/utils/mechanic_design.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class ChatListItem extends StatelessWidget {
@@ -29,7 +30,10 @@ class ChatListItem extends StatelessWidget {
       surfaceTintColor: Colors.white,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: MechanicColor.primary100),
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
