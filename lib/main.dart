@@ -288,7 +288,9 @@ class _MainLayoutState extends State<MainLayout> {
                 child: IndexedStack(index: _currentIndex, children: _screens),
               ),
             )
-          : IndexedStack(index: _currentIndex, children: _screens),
+          : SearchBackground(
+              child: IndexedStack(index: _currentIndex, children: _screens),
+            ),
       bottomNavigationBar: isMechanic
           ? Container(
               decoration: BoxDecoration(

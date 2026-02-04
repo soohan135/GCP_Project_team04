@@ -440,3 +440,82 @@ class ConsumerBottomNav extends StatelessWidget {
     );
   }
 }
+
+class SearchBackground extends StatelessWidget {
+  final Widget child;
+  final Offset offset;
+
+  const SearchBackground({
+    super.key,
+    required this.child,
+    this.offset = Offset.zero,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: ConsumerColor.background,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Center(
+              child: Transform.translate(
+                offset: offset,
+                child: Transform.rotate(
+                  angle: 0.5236, // 30 degrees in radians
+                  child: CustomPaint(
+                    size: const Size(300, 300),
+                    painter: MagnifierPainter(
+                      color: ConsumerColor.brand500.withValues(alpha: 0.05),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class MagnifierPainter extends CustomPainter {
+  final Color color;
+
+  MagnifierPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth =
+          32 // Increase stroke width
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final unit = size.width / 100;
+
+    final path = Path();
+
+    // Use a single path to avoid darkening at intersections
+    path.addOval(
+      Rect.fromCircle(center: Offset(40 * unit, 40 * unit), radius: 30 * unit),
+    );
+
+    final start = Offset(
+      40 * unit + (30 * unit * 0.707),
+      40 * unit + (30 * unit * 0.707),
+    );
+    final end = Offset(95 * unit, 95 * unit);
+
+    path.moveTo(start.dx, start.dy);
+    path.lineTo(end.dx, end.dy);
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
