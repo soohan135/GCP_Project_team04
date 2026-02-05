@@ -21,18 +21,18 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final userCredential = await authService.signInWithGoogle();
-      
+
       if (userCredential == null && mounted) {
         // Login failed or cancelled
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('로그인이 취소되었거나 실패했습니다.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('로그인이 취소되었거나 실패했습니다.')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('오류가 발생했습니다: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
       }
     } finally {
       if (mounted) {
@@ -58,25 +58,38 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const Spacer(),
               // Logo Section
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: const Center(
-                  child: Icon(
-                    LucideIcons.car,
-                    color: Colors.white,
-                    size: 48,
+              // Logo Section
+              Material(
+                elevation: 10,
+                shadowColor: Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(30),
+                clipBehavior: Clip.antiAlias,
+                child: SizedBox(
+                  width: 123,
+                  height: 123,
+                  child: Stack(
+                    children: [
+                      // Bottom Right - Orange
+                      ClipPath(
+                        clipper: BottomRightTriangleClipper(),
+                        child: Image.asset(
+                          'assets/images/app_logo_orange.png',
+                          width: 123,
+                          height: 123,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      // Top Left - Blue
+                      ClipPath(
+                        clipper: TopLeftTriangleClipper(),
+                        child: Image.asset(
+                          'assets/images/app_logo_blue.png',
+                          width: 123,
+                          height: 123,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -123,10 +136,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             // Simple existing icon or text as placeholder for Google Logo
                             // In real app, we would use an asset image for Google Logo
                             const Icon(
-                              LucideIcons.chrome, 
-                              color: Colors.blue, 
-                              size: 24
-                            ), 
+                              LucideIcons.chrome,
+                              color: Colors.blue,
+                              size: 24,
+                            ),
                             const SizedBox(width: 12),
                             Text(
                               'Google로 계속하기',
@@ -146,4 +159,33 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+class TopLeftTriangleClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.lineTo(size.width, 0);
+    path.lineTo(0, size.height);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+class BottomRightTriangleClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.moveTo(size.width, 0);
+    path.lineTo(size.width, size.height);
+    path.lineTo(0, size.height);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
