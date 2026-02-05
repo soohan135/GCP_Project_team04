@@ -234,63 +234,51 @@ class ConsumerHeader extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return Container(
       color: ConsumerColor.brand50,
-      padding: const EdgeInsets.only(left: 20, right: 20, top: 36, bottom: 8),
+      padding: const EdgeInsets.only(left: 24, right: 20, top: 36, bottom: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: ConsumerColor.brand100),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+          Expanded(
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: OverflowBox(
+                      minWidth: 100,
+                      maxWidth: 100,
+                      minHeight: 100,
+                      maxHeight: 100,
+                      alignment: Alignment.center,
+                      child: Image.asset(
+                        'assets/images/app_logo_blue_void.png',
+                        fit: BoxFit.contain,
+                      ),
                     ),
-                  ],
+                  ),
                 ),
-                padding: const EdgeInsets.all(4),
-                child: const PixieMascot(status: 'idle', size: 32),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Text('카', style: ConsumerTypography.h1),
-                      const WaveGraphic(),
-                      Text('더라', style: ConsumerTypography.h1),
-                    ],
-                  ),
-                  Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
+
+                Flexible(
+                  child: Container(
+                    height: 48,
+                    alignment: Alignment.centerLeft,
+                    child: OverflowBox(
+                      maxHeight: 100,
+                      maxWidth: 300,
+                      alignment: Alignment.centerLeft,
+                      child: Image.asset(
+                        'assets/images/logo_blue.png',
+                        height: 66,
+                        fit: BoxFit.contain,
+                        alignment: Alignment.centerLeft,
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
-                          blurRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: Text('AI 수리 견적', style: ConsumerTypography.tag),
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
           Container(
             width: 40,

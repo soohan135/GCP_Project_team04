@@ -178,28 +178,6 @@ class _MainLayoutState extends State<MainLayout> {
   Widget build(BuildContext context) {
     final isMechanic = widget.appUser.role == UserRole.mechanic;
 
-    // Determine title for Mechanic based on index
-    String mechanicTitle = '정비사 관리 시스템';
-    if (isMechanic) {
-      switch (_currentIndex) {
-        case 0:
-          mechanicTitle = '일정 관리';
-          break;
-        case 1:
-          mechanicTitle = '견적 요청 현황';
-          break;
-        case 2:
-          mechanicTitle = '리뷰 관리';
-          break;
-        case 3:
-          mechanicTitle = '채팅';
-          break;
-        case 4:
-          mechanicTitle = '설정';
-          break;
-      }
-    }
-
     final consumerHeader = ConsumerHeader(
       onSettingsTap: () => setState(() => _currentIndex = 5),
     );
@@ -221,39 +199,40 @@ class _MainLayoutState extends State<MainLayout> {
               ),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      gradient: MechanicColor.pointGradient,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      LucideIcons.car,
-                      color: Colors.white,
-                      size: 20,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: OverflowBox(
+                        minWidth: 100,
+                        maxWidth: 100,
+                        minHeight: 100,
+                        maxHeight: 100,
+                        alignment: Alignment.center,
+                        child: Image.asset(
+                          'assets/images/app_logo_orange_void.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'CarFix Pro',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: MechanicColor.primary700,
-                        ),
+
+                  Container(
+                    width: 140,
+                    height: 48,
+                    alignment: Alignment.centerLeft,
+                    child: OverflowBox(
+                      maxWidth: 300,
+                      maxHeight: 100,
+                      alignment: Alignment.centerLeft,
+                      child: Image.asset(
+                        'assets/images/logo_orange.png',
+                        height: 66,
+                        fit: BoxFit.contain,
+                        alignment: Alignment.centerLeft,
                       ),
-                      Text(
-                        mechanicTitle,
-                        style: MechanicTypography.subheader.copyWith(
-                          fontWeight: FontWeight.bold,
-                          height: 1.1,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                   const Spacer(),
                   IconButton(
