@@ -268,6 +268,11 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: ConsumerColor.brand500, width: 2),
+          ),
           title: const Text('견적 저장'),
           content: TextField(
             controller: titleController,

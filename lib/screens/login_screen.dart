@@ -67,41 +67,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: SizedBox(
                   width: 123,
                   height: 123,
-                  child: Stack(
-                    children: [
-                      // Bottom Right - Orange
-                      ClipPath(
-                        clipper: BottomRightTriangleClipper(),
-                        child: Image.asset(
-                          'assets/images/app_logo_orange.png',
-                          width: 123,
-                          height: 123,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      // Top Left - Blue
-                      ClipPath(
-                        clipper: TopLeftTriangleClipper(),
-                        child: Image.asset(
-                          'assets/images/app_logo_blue.png',
-                          width: 123,
-                          height: 123,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ],
+                  child: Image.asset(
+                    'assets/images/app_logo_blue_void_right.png',
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),
               const SizedBox(height: 32),
               Column(
                 children: [
-                  Text(
-                    'CarFix',
-                    style: theme.textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface,
-                    ),
+                  Image.asset(
+                    'assets/images/logo_blue_right.png',
+                    height: 40,
+                    fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 8),
                   Text(

@@ -239,6 +239,11 @@ class EstimateDetailScreen extends StatelessWidget {
       context: ctx,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: ConsumerColor.brand500, width: 2),
+          ),
           title: const Text('수리 완료'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
