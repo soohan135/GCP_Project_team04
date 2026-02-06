@@ -271,18 +271,21 @@ class _MainLayoutState extends State<MainLayout> {
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
+                  top: Radius.circular(24),
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
+                    blurRadius: 16,
                     offset: const Offset(0, -4),
                   ),
                 ],
               ),
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).padding.bottom,
+              padding: const EdgeInsets.only(
+                left: 12,
+                right: 12,
+                top: 8,
+                bottom: 28,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -320,7 +323,7 @@ class _MainLayoutState extends State<MainLayout> {
       onTap: () => setState(() => _currentIndex = index),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
