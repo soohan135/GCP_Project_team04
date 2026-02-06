@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'providers/theme_provider.dart';
 import 'providers/shop_provider.dart';
@@ -26,6 +27,13 @@ import 'utils/mechanic_design.dart';
 import 'utils/consumer_design.dart';
 import 'dart:ui';
 
+// Background message handler (MUST be outside class and top-level)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint("Handling a background message: ${message.messageId}");
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ko_KR', null);
@@ -37,6 +45,16 @@ void main() async {
     androidProvider: AndroidProvider.debug,
     appleProvider: AppleProvider.debug,
   );
+
+  // 알림 권한 요청
+  await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  // Background message handler (optional, but good practice)
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   runApp(
     MultiProvider(
@@ -146,6 +164,37 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   void initState() {
     super.initState();
+
+    // 포그라운드 메시지 리스너 설정
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      debugPrint("Foreground message received: ${message.notification?.title}");
+      if (message.notification != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.notification!.title ?? '알림',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(message.notification!.body ?? ''),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: '보기',
+              onPressed: () {
+                // 필요 시 특정 화면으로 이동 로직 추가 가능
+              },
+            ),
+          ),
+        );
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.appUser.role == UserRole.consumer) {
         Provider.of<ShopProvider>(context, listen: false).initialize();

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../models/app_user.dart';
 
 class AuthService {
@@ -101,6 +102,14 @@ class AuthService {
 
       final userSnapshot = await userRef.get();
 
+      // FCM 토큰 가져오기
+      String? fcmToken;
+      try {
+        fcmToken = await FirebaseMessaging.instance.getToken();
+      } catch (e) {
+        debugPrint("Error fetching FCM token: $e");
+      }
+
       // users 컬렉션에 문서가 없으면 최초 로그인으로 판단
       if (!userSnapshot.exists) {
         await userRef.set({
@@ -111,9 +120,15 @@ class AuthService {
           'role': 'none', // 초기 상태는 정해지지 않음
           'upload_counters': 0,
           'createdAt': FieldValue.serverTimestamp(),
+          'fcmToken': fcmToken, // FCM 토큰 저장
         });
         debugPrint("New user data saved to 'users' for uid: ${user.uid}");
       } else {
+        // 기존 유저의 경우에도 토큰이 바뀌었을 수 있으므로 업데이트
+        if (fcmToken != null) {
+          await userRef.update({'fcmToken': fcmToken});
+          debugPrint("FCM token updated for uid: ${user.uid}");
+        }
         debugPrint("User data already exists for uid: ${user.uid}");
       }
     } catch (e) {

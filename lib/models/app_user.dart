@@ -9,6 +9,7 @@ class AppUser {
   final String? photoURL;
   final UserRole role;
   final String? serviceCenterId;
+  final String? fcmToken;
   final DateTime? createdAt;
 
   AppUser({
@@ -18,6 +19,7 @@ class AppUser {
     this.photoURL,
     this.role = UserRole.none,
     this.serviceCenterId,
+    this.fcmToken,
     this.createdAt,
   });
 
@@ -39,6 +41,7 @@ class AppUser {
       photoURL: data['photoURL'],
       role: role,
       serviceCenterId: data['serviceCenterId'],
+      fcmToken: data['fcmToken'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -51,11 +54,16 @@ class AppUser {
       'photoURL': photoURL,
       'role': role.name,
       'serviceCenterId': serviceCenterId,
+      'fcmToken': fcmToken,
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
     };
   }
 
-  AppUser copyWith({UserRole? role, String? serviceCenterId}) {
+  AppUser copyWith({
+    UserRole? role,
+    String? serviceCenterId,
+    String? fcmToken,
+  }) {
     return AppUser(
       uid: uid,
       email: email,
@@ -63,6 +71,7 @@ class AppUser {
       photoURL: photoURL,
       role: role ?? this.role,
       serviceCenterId: serviceCenterId ?? this.serviceCenterId,
+      fcmToken: fcmToken ?? this.fcmToken,
       createdAt: createdAt,
     );
   }

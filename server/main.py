@@ -7,6 +7,12 @@ import requests
 from google.cloud import storage
 import google.auth.transport.requests
 import google.oauth2.id_token
+import firebase_admin
+from firebase_admin import credentials, messaging, firestore as firebase_firestore
+
+# Firebase Admin SDK 초기화
+if not firebase_admin._apps:
+    firebase_admin.initialize_app()
 
 # AI 서비스 URL (환경 변수에서 가져옴)
 AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "https://YOUR_AI_SERVICE_URL_HERE")
@@ -213,3 +219,60 @@ def analyze_crashed_car(cloud_event):
     except Exception as e:
         print(f"Error processing image: {e}")
         raise e
+
+@functions_framework.cloud_event
+def send_estimate_notification(cloud_event):
+    """
+    Firestore에 새로운 견적 요청이 들어왔을 때 실행되는 Cloud Function.
+    'service_centers/{shop_id}/receive_estimate/{estimate_id}' 패턴을 감지하도록 설정 필요.
+    """
+    data = cloud_event.data
+    
+    # 1. 문서 경로 분석
+    # Cloud Event data structure for Firestore depends on the trigger type
+    # For Eventarc / Firestore Triggers:
+    resource = data.get("value", {}).get("name", "")
+    # resource format: projects/{project}/databases/(default)/documents/service_centers/{shop_id}/receive_estimate/{estimate_id}
+    
+    match = re.search(r'service_centers/(.*?)/receive_estimate/(.*)', resource)
+    if not match:
+        print(f"Could not parse resource name: {resource}")
+        return
+    
+    shop_id = match.group(1)
+    estimate_id = match.group(2)
+    
+    print(f"New estimate request {estimate_id} for shop {shop_id}")
+    
+    # 2. 해당 정비소에 소속된 유저들(정비사) 찾기
+    db = firebase_firestore.client()
+    users_ref = db.collection("users").where("serviceCenterId", "==", shop_id)
+    users = users_ref.get()
+    
+    tokens = []
+    for user in users:
+        user_data = user.to_dict()
+        token = user_data.get("fcmToken")
+        if token:
+            tokens.append(token)
+    
+    if not tokens:
+        print(f"No FCM tokens found for shop {shop_id}")
+        return
+    
+    # 3. 알림 발송
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(
+            title="새로운 견적 요청!",
+            body="근처에서 새로운 수리 견적 요청이 도착했습니다. 확인해 보세요!",
+        ),
+        data={
+            "shopId": shop_id,
+            "estimateId": estimate_id,
+            "click_action": "FLUTTER_NOTIFICATION_CLICK",
+        },
+        tokens=tokens,
+    )
+    
+    response = messaging.send_multicast(message)
+    print(f"Successfully sent {response.success_count} notifications. Failed: {response.failure_count}")
