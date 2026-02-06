@@ -1,0 +1,45 @@
+steps:
+  # 1. Docker Build
+  # Cache를 활용하여 빌드 속도를 높입니다.
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        docker pull asia-northeast3-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/analyze-crashed-car-3:latest || exit 0
+        docker build \
+          -t asia-northeast3-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/analyze-crashed-car-3:$COMMIT_SHA \
+          -t asia-northeast3-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/analyze-crashed-car-3:latest \
+          --cache-from asia-northeast3-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/analyze-crashed-car-3:latest \
+          server
+    id: 'Build Docker Image'
+
+  # 2. Push Image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/analyze-crashed-car-3:$COMMIT_SHA']
+    id: 'Push Image with Commit SHA'
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/analyze-crashed-car-3:latest']
+    id: 'Push Latest Image'
+
+  # 3. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'analyze-crashed-car-3'
+      - '--image'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/analyze-crashed-car-3:$COMMIT_SHA'
+      - '--region'
+      - 'asia-northeast3'
+    id: 'Deploy to Cloud Run'
+
+images:
+  - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/analyze-crashed-car-3:$COMMIT_SHA'
+  - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/analyze-crashed-car-3:latest'
+
+# 로깅 설정 (선택 사항)
+options:
+  logging: CLOUD_LOGGING_ONLY
