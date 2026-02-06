@@ -202,8 +202,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   _result = {
                     'damage': damageDescription,
                     'estimatedPrice': formattedPrice,
-                    'analyzedImageUrl': data['damageImageUrl'],
-                    'partImageUrl': data['partImageUrl'], // [추가] 부품 분석 이미지 URL
+                    'combinedImageUrl':
+                        data['combinedImageUrl'] ??
+                        data['damageImageUrl'], // combined가 없으면 damageUrl로 대체
                     'recommendations': [
                       '손상 부위 정밀 점검 필요',
                       '주변 부위 도장 상태 확인',
@@ -305,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'recommendations': _result!['recommendations'],
             'date': DateTime.now().toIso8601String(),
             'imageUrl': _imageUrl,
-            'analyzedImageUrl': _result?['analyzedImageUrl'],
+            'analyzedImageUrl': _result?['combinedImageUrl'],
           });
       if (!mounted) return docRef.id;
       ScaffoldMessenger.of(
@@ -368,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
         price: _result!['estimatedPrice'],
         status: '저장됨',
         recommendations: List<String>.from(_result!['recommendations']),
-        imageUrl: _imageUrl ?? _result?['analyzedImageUrl'],
+        imageUrl: _imageUrl ?? _result?['combinedImageUrl'],
       );
 
       await estimateProvider.sendEstimateToNearbyShops(
@@ -635,30 +636,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          if (_result!['analyzedImageUrl'] != null)
+          if (_result!['combinedImageUrl'] != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Stack(
-                children: [
-                  // 기본 분석 이미지 (하단)
-                  Image.network(
-                    _result!['analyzedImageUrl'],
-                    width: double.infinity,
-                    height: 200,
-                    fit: BoxFit.cover,
-                  ),
-                  // 부품 분석 이미지 (상단, 투명도 적용)
-                  if (_result!['partImageUrl'] != null)
-                    Opacity(
-                      opacity: 0.6, // 투명도 조절로 두 이미지를 합성한 것처럼 보여줌
-                      child: Image.network(
-                        _result!['partImageUrl'],
-                        width: double.infinity,
-                        height: 200,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                ],
+              child: Image.network(
+                _result!['combinedImageUrl'],
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.cover,
               ),
             ),
           const SizedBox(height: 24),

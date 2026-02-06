@@ -25,6 +25,12 @@ class ConsumerColor {
 
   static const Color background = brand50;
   static const Color cardBackground = Colors.white;
+
+  static LinearGradient get pointGradient => const LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [brand400, brand600],
+  );
 }
 
 class ConsumerTypography {
@@ -453,7 +459,7 @@ class SearchBackground extends StatelessWidget {
                 child: Transform.rotate(
                   angle: 0.5236, // 30 degrees in radians
                   child: CustomPaint(
-                    size: const Size(300, 300),
+                    size: const Size(260, 260),
                     painter: MagnifierPainter(
                       color: ConsumerColor.brand500.withValues(alpha: 0.05),
                     ),

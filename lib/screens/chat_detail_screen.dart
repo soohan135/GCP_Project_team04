@@ -111,7 +111,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           body: isMechanic
               ? WrenchBackground(child: _buildChatBody(context, true))
               : SearchBackground(
-                  offset: const Offset(0, -100),
+                  offset: const Offset(-10, -40),
                   child: _buildChatBody(context, false),
                 ),
         );
@@ -207,11 +207,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: isMe
-                    ? (isMechanic ? null : ConsumerColor.brand500)
-                    : Colors.white,
-                gradient: isMe && isMechanic
-                    ? MechanicColor.pointGradient
+                color: isMe ? null : Colors.white,
+                gradient: isMe
+                    ? (isMechanic
+                          ? MechanicColor.pointGradient
+                          : ConsumerColor.pointGradient)
                     : null,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(18),
