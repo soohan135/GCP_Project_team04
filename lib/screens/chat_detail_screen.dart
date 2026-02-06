@@ -295,7 +295,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 maxLines: null,
                 style: isMechanic
                     ? const TextStyle(fontSize: 15)
-                    : ConsumerTypography.bodyMedium,
+                    : const TextStyle(fontSize: 15),
               ),
             ),
           ),
