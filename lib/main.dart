@@ -9,6 +9,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'providers/theme_provider.dart';
 import 'providers/shop_provider.dart';
 import 'providers/estimate_provider.dart';
+import 'providers/notification_provider.dart';
 import 'services/auth_service.dart';
 import 'services/service_center_service.dart';
 import 'screens/home_screen.dart';
@@ -44,6 +45,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => ShopProvider()),
         ChangeNotifierProvider(create: (_) => EstimateProvider()..initialize()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<ServiceCenterService>(create: (_) => ServiceCenterService()),
       ],
@@ -150,6 +152,10 @@ class _MainLayoutState extends State<MainLayout> {
       if (widget.appUser.role == UserRole.consumer) {
         Provider.of<ShopProvider>(context, listen: false).initialize();
       }
+      Provider.of<NotificationProvider>(
+        context,
+        listen: false,
+      ).initialize(widget.appUser);
     });
   }
 
@@ -299,7 +305,13 @@ class _MainLayoutState extends State<MainLayout> {
             )
           : ConsumerBottomNav(
               currentIndex: _currentIndex,
-              onTap: (index) => setState(() => _currentIndex = index),
+              onTap: (index) {
+                setState(() => _currentIndex = index);
+                Provider.of<NotificationProvider>(
+                  context,
+                  listen: false,
+                ).markAsRead(index);
+              },
             ),
     );
   }
@@ -307,6 +319,8 @@ class _MainLayoutState extends State<MainLayout> {
   Widget _buildNavItem(int index, String label, IconData icon) {
     bool isActive = _currentIndex == index;
     final isMechanic = widget.appUser.role == UserRole.mechanic;
+    final notificationProvider = Provider.of<NotificationProvider>(context);
+    final hasNotification = notificationProvider.hasNotification(index);
 
     // CarFix Pro Orange Theme
     final activeColor = isMechanic
@@ -320,27 +334,48 @@ class _MainLayoutState extends State<MainLayout> {
     final inactiveColor = Colors.grey;
 
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () {
+        setState(() => _currentIndex = index);
+        notificationProvider.markAsRead(index);
+      },
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isActive ? activeBgColor : Colors.transparent,
-              ),
-              child: Center(
-                child: Icon(
-                  icon,
-                  size: 24,
-                  color: isActive ? activeColor : inactiveColor,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isActive ? activeBgColor : Colors.transparent,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      size: 24,
+                      color: isActive ? activeColor : inactiveColor,
+                    ),
+                  ),
                 ),
-              ),
+                if (hasNotification)
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(

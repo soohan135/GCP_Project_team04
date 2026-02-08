@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:provider/provider.dart';
+import '../providers/notification_provider.dart';
 
 class ConsumerColor {
   static const Color brand50 = Color(0xFFF0F9FF);
@@ -406,12 +408,32 @@ class ConsumerBottomNav extends StatelessWidget {
                           : ConsumerColor.brand50.withValues(alpha: 0),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      items[index]['icon'],
-                      size: 24,
-                      color: isActive
-                          ? ConsumerColor.brand600
-                          : ConsumerColor.slate400,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Icon(
+                          items[index]['icon'],
+                          size: 24,
+                          color: isActive
+                              ? ConsumerColor.brand600
+                              : ConsumerColor.slate400,
+                        ),
+                        if (Provider.of<NotificationProvider>(
+                          context,
+                        ).hasNotification(index))
+                          Positioned(
+                            top: -2,
+                            right: -2,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 2),
