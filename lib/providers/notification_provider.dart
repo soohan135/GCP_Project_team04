@@ -42,20 +42,17 @@ class NotificationProvider with ChangeNotifier {
         .doc(uid)
         .collection('response_estimate')
         .snapshots()
-        .listen(
-          (snapshot) {
-            if (isFirstLoadResponses) {
-              isFirstLoadResponses = false;
-              return;
+        .listen((snapshot) {
+          if (isFirstLoadResponses) {
+            isFirstLoadResponses = false;
+            return;
+          }
+          for (var change in snapshot.docChanges) {
+            if (change.type == DocumentChangeType.added) {
+              _setNotification(2, true);
             }
-            for (var change in snapshot.docChanges) {
-              if (change.type == DocumentChangeType.added) {
-                _setNotification(2, true);
-              }
-            }
-          },
-          onError: (e) => print('Error in consumer responses stream: $e'),
-        );
+          }
+        }, onError: (e) => print('Error in consumer responses stream: $e'));
 
     // Index 3: Chat (chat_rooms where participants contains uid)
     bool isFirstLoadChats = true;
@@ -63,26 +60,28 @@ class NotificationProvider with ChangeNotifier {
         .collection('chat_rooms')
         .where('participants', arrayContains: uid)
         .snapshots()
-        .listen(
-          (snapshot) {
-            if (isFirstLoadChats) {
-              isFirstLoadChats = false;
-              return;
-            }
-            for (var change in snapshot.docChanges) {
-              if (change.type == DocumentChangeType.added ||
-                  change.type == DocumentChangeType.modified) {
-                 final data = change.doc.data();
-                 final lastSenderId = data?['lastMessageSenderId'] as String?;
-                 // Notify only if the sender is NOT the current user
-                 if (lastSenderId != null && lastSenderId != uid) {
-                   _setNotification(3, true);
-                 }
+        .listen((snapshot) {
+          if (isFirstLoadChats) {
+            isFirstLoadChats = false;
+            return;
+          }
+          for (var change in snapshot.docChanges) {
+            if (change.type == DocumentChangeType.added ||
+                change.type == DocumentChangeType.modified) {
+              final data = change.doc.data();
+              final lastSenderId = data?['lastMessageSenderId'] as String?;
+              final lastMessage = data?['lastMessage'] as String?;
+
+              // Notify only if the sender is NOT the current user and message is not empty
+              if (lastSenderId != null &&
+                  lastSenderId != uid &&
+                  lastMessage != null &&
+                  lastMessage.isNotEmpty) {
+                _setNotification(3, true);
               }
             }
-          },
-          onError: (e) => print('Error in consumer chat stream: $e'),
-        );
+          }
+        }, onError: (e) => print('Error in consumer chat stream: $e'));
   }
 
   void _subscribeToMechanic(String uid, String? shopId) {
@@ -95,20 +94,17 @@ class NotificationProvider with ChangeNotifier {
         .doc(shopId)
         .collection('receive_estimate')
         .snapshots()
-        .listen(
-          (snapshot) {
-            if (isFirstLoadRequests) {
-              isFirstLoadRequests = false;
-              return;
+        .listen((snapshot) {
+          if (isFirstLoadRequests) {
+            isFirstLoadRequests = false;
+            return;
+          }
+          for (var change in snapshot.docChanges) {
+            if (change.type == DocumentChangeType.added) {
+              _setNotification(1, true);
             }
-            for (var change in snapshot.docChanges) {
-              if (change.type == DocumentChangeType.added) {
-                _setNotification(1, true);
-              }
-            }
-          },
-          onError: (e) => print('Error in mechanic requests stream: $e'),
-        );
+          }
+        }, onError: (e) => print('Error in mechanic requests stream: $e'));
 
     // Index 2: Review Management
     bool isFirstLoadReviews = true;
@@ -117,20 +113,17 @@ class NotificationProvider with ChangeNotifier {
         .doc(shopId)
         .collection('reviews')
         .snapshots()
-        .listen(
-          (snapshot) {
-            if (isFirstLoadReviews) {
-              isFirstLoadReviews = false;
-              return;
+        .listen((snapshot) {
+          if (isFirstLoadReviews) {
+            isFirstLoadReviews = false;
+            return;
+          }
+          for (var change in snapshot.docChanges) {
+            if (change.type == DocumentChangeType.added) {
+              _setNotification(2, true);
             }
-            for (var change in snapshot.docChanges) {
-              if (change.type == DocumentChangeType.added) {
-                _setNotification(2, true);
-              }
-            }
-          },
-          onError: (e) => print('Error in mechanic reviews stream: $e'),
-        );
+          }
+        }, onError: (e) => print('Error in mechanic reviews stream: $e'));
 
     // Index 3: Chat
     bool isFirstLoadChats = true;
@@ -138,26 +131,28 @@ class NotificationProvider with ChangeNotifier {
         .collection('chat_rooms')
         .where('participants', arrayContains: uid)
         .snapshots()
-        .listen(
-          (snapshot) {
-            if (isFirstLoadChats) {
-              isFirstLoadChats = false;
-              return;
-            }
-            for (var change in snapshot.docChanges) {
-              if (change.type == DocumentChangeType.added ||
-                  change.type == DocumentChangeType.modified) {
-                 final data = change.doc.data();
-                 final lastSenderId = data?['lastMessageSenderId'] as String?;
-                 // Notify only if the sender is NOT the current user
-                 if (lastSenderId != null && lastSenderId != uid) {
-                   _setNotification(3, true);
-                 }
+        .listen((snapshot) {
+          if (isFirstLoadChats) {
+            isFirstLoadChats = false;
+            return;
+          }
+          for (var change in snapshot.docChanges) {
+            if (change.type == DocumentChangeType.added ||
+                change.type == DocumentChangeType.modified) {
+              final data = change.doc.data();
+              final lastSenderId = data?['lastMessageSenderId'] as String?;
+              final lastMessage = data?['lastMessage'] as String?;
+
+              // Notify only if the sender is NOT the current user and message is not empty
+              if (lastSenderId != null &&
+                  lastSenderId != uid &&
+                  lastMessage != null &&
+                  lastMessage.isNotEmpty) {
+                _setNotification(3, true);
               }
             }
-          },
-          onError: (e) => print('Error in mechanic chat stream: $e'),
-        );
+          }
+        }, onError: (e) => print('Error in mechanic chat stream: $e'));
   }
 
   void _clearSubscriptions() {
@@ -167,11 +162,4 @@ class NotificationProvider with ChangeNotifier {
     _subscriptions.clear();
     _hasNotification.clear();
   }
-
-  @override
-  void dispose() {
-    _clearSubscriptions();
-    super.dispose();
-  }
-
-
+}

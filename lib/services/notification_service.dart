@@ -40,7 +40,7 @@ class NotificationService {
         InitializationSettings(android: initializationSettingsAndroid);
 
     await _localNotifications.initialize(
-      initializationSettings,
+      settings: initializationSettings,
       onDidReceiveNotificationResponse: (details) {
         // 알림 클릭 시 처리 로직
       },
@@ -75,10 +75,10 @@ class NotificationService {
     );
 
     await _localNotifications.show(
-      message.hashCode,
-      message.notification?.title ?? "새로운 알림",
-      message.notification?.body ?? "내용이 없습니다.",
-      platformDetails,
+      id: message.hashCode,
+      title: message.notification?.title ?? "새로운 알림",
+      body: message.notification?.body ?? "내용이 없습니다.",
+      notificationDetails: platformDetails,
     );
   }
 
