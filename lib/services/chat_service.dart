@@ -43,7 +43,10 @@ class ChatService {
       if (consumerId != null) updateData['consumerId'] = consumerId;
 
       if (updateData.isNotEmpty) {
-        await _firestore.collection('chat_rooms').doc(roomId).update(updateData);
+        await _firestore
+            .collection('chat_rooms')
+            .doc(roomId)
+            .update(updateData);
       }
     }
 
@@ -77,6 +80,7 @@ class ChatService {
     batch.update(roomRef, {
       'lastMessage': text,
       'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastMessageSenderId': currentUserId,
     });
 
     await batch.commit();
@@ -103,10 +107,19 @@ class ChatService {
   }
 
   // Get the other participant's user data
-  Future<AppUser?> getOtherParticipantUser(List<dynamic> participants, String currentUserId) async {
-    final otherUserId = participants.firstWhere((id) => id != currentUserId, orElse: () => null);
+  Future<AppUser?> getOtherParticipantUser(
+    List<dynamic> participants,
+    String currentUserId,
+  ) async {
+    final otherUserId = participants.firstWhere(
+      (id) => id != currentUserId,
+      orElse: () => null,
+    );
     if (otherUserId != null) {
-      final userDoc = await _firestore.collection('users').doc(otherUserId).get();
+      final userDoc = await _firestore
+          .collection('users')
+          .doc(otherUserId)
+          .get();
       if (userDoc.exists) {
         return AppUser.fromFirestore(userDoc);
       }
@@ -115,7 +128,10 @@ class ChatService {
   }
 
   // Get estimate details
-  Future<Estimate?> getEstimateDetails(String estimateId, String consumerId) async {
+  Future<Estimate?> getEstimateDetails(
+    String estimateId,
+    String consumerId,
+  ) async {
     try {
       final doc = await _firestore
           .collection('users')
@@ -136,9 +152,7 @@ class ChatService {
               data['imageUrl'] ??
               data['analyzedImageUrl'] ??
               data['imageUploadUrl'],
-          recommendations: List<String>.from(
-            data['recommendations'] ?? [],
-          ),
+          recommendations: List<String>.from(data['recommendations'] ?? []),
           realPrice: data['realPrice'],
         );
       }
