@@ -157,16 +157,24 @@ def analyze_crashed_car(cloud_event):
 
     print(f"Detected UID: {uid}")
 
-    # 4. 메타데이터에서 차종 추출
-    car_model = metadata.get('carModel', 'unknown')
-    print(f"Detected Car Model from Metadata: {car_model}")
-
     storage_client = storage.Client()
 
     try:
-        # 5. GCS에서 이미지 다운로드 (메모리로 바로 로드)
+        # 4. GCS에서 이미지 다운로드 및 메타데이터 조회
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(file_name)
+        
+        # 메타데이터를 확실하게 가져오기 위해 reload 호출
+        blob.reload()
+        
+        # 메타데이터에서 차종 추출
+        car_model = 'unknown'
+        if blob.metadata:
+            car_model = blob.metadata.get('carModel', 'unknown')
+            
+        print(f"Detected Car Model from Blob Metadata: {car_model}")
+        
+        # 이미지를 메모리(BytesIO)에 다운로드
         
         # 이미지를 메모리(BytesIO)에 다운로드
         from io import BytesIO
@@ -215,3 +223,6 @@ def analyze_crashed_car(cloud_event):
     except Exception as e:
         print(f"Error processing image: {e}")
         raise e
+
+
+#dummy
