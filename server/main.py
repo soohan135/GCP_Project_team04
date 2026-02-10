@@ -27,7 +27,7 @@ def parse_filename(filename):
         return parts[0]
     return None
 
-def predict_damage(image_path, user_id=None):
+def predict_damage(image_path, user_id=None, car_model='unknown'):
     """
     외부 AI Cloud Run 서비스에 이미지를 전송하여 분석 결과를 받아옵니다.
     (인증 토큰 생성 로직 포함)
@@ -60,7 +60,7 @@ def predict_damage(image_path, user_id=None):
             # 파일명과 MIME 타입(image/jpeg 등)을 명시적으로 지정
             mime_type = 'image/jpeg' if image_path.lower().endswith(('.jpg', '.jpeg')) else 'image/png'
             files = {'file': (os.path.basename(image_path), img_file, mime_type)}
-            data = {'car_model': 'unknown'}
+            data = {'car_model': car_model}
             if user_id:
                 data['user_id'] = user_id
 
@@ -111,12 +111,14 @@ def analyze_crashed_car(cloud_event):
         # Audit logs don't typically carry contentType in the top level. 
         # We'll assume it's valid if it matched the path pattern, or fetch metadata if strictly needed.
         contentType = "image/unknown" 
+        metadata = {} # Audit Log에서는 메타데이터 추출이 복잡하므로 생략하거나 별도 조회 필요
     else:
         # Case 2: Direct Storage Trigger (Legacy/Standard)
         print("Processing as Direct Storage event...")
         bucket_name = data.get("bucket")
         file_name = data.get("name")
         contentType = data.get("contentType", "")
+        metadata = data.get("metadata", {}) # 메타데이터 추출
 
     print(f"Event ID: {event_id}")
     print(f"Event Type: {event_type}")
@@ -124,6 +126,8 @@ def analyze_crashed_car(cloud_event):
     print(f"File: {file_name}")
     print(f"Created: {timeCreated}")
     print(f"Content Type: {contentType}")
+    if metadata:
+        print(f"Metadata: {metadata}")
 
     if not bucket_name or not file_name:
         print("Error: Bucket or Name not found in event data.")
@@ -153,12 +157,14 @@ def analyze_crashed_car(cloud_event):
 
     print(f"Detected UID: {uid}")
 
-    print(f"Detected UID: {uid}")
+    # 4. 메타데이터에서 차종 추출
+    car_model = metadata.get('carModel', 'unknown')
+    print(f"Detected Car Model from Metadata: {car_model}")
 
     storage_client = storage.Client()
 
     try:
-        # 4. GCS에서 이미지 다운로드 (메모리로 바로 로드)
+        # 5. GCS에서 이미지 다운로드 (메모리로 바로 로드)
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(file_name)
         
@@ -170,11 +176,7 @@ def analyze_crashed_car(cloud_event):
         
         print(f"Downloaded {file_name} to memory")
 
-        # 5. AI 추론 실행 (외부 서비스 호출)
-        # predict_damage 함수를 인메모리 방식에 맞게 호출하도록 수정하거나, 
-        # 직접 호출 로직을 여기로 가져오는 것이 좋음. 
-        # 여기서는 predict_damage를 재사용하기 위해 함수 내부를 수정하는 대신 직접 호출 로직 구현
-
+        # 6. AI 추론 실행 (외부 서비스 호출)
         if not AI_SERVICE_URL or "YOUR_AI_SERVICE_URL_HERE" in AI_SERVICE_URL:
              raise ValueError("AI_SERVICE_URL not configured")
         
@@ -188,9 +190,9 @@ def analyze_crashed_car(cloud_event):
         
         mime_type = 'image/jpeg' if file_name.lower().endswith(('.jpg', '.jpeg')) else 'image/png'
         files = {'file': (file_basename, image_data, mime_type)}
-        data = {'car_model': 'unknown', 'user_id': uid}
+        data = {'car_model': car_model, 'user_id': uid}
         
-        print(f"Sending request to {target_url} with user_id={uid}")
+        print(f"Sending request to {target_url} with user_id={uid}, car_model={car_model}")
         
         response = requests.post(
             target_url,
@@ -206,7 +208,7 @@ def analyze_crashed_car(cloud_event):
         download_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/crashed_car_picture%2F{file_basename}?alt=media"
         prediction_result['imageUrl'] = download_url
         
-        # 6. 결과 로그 출력
+        # 7. 결과 로그 출력
         print(f"Analysis completed for user: {uid}")
         print(f"Prediction Result: {prediction_result}")
 

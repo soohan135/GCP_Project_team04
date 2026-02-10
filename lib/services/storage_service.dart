@@ -30,7 +30,10 @@ class StorageService {
     }
   }
 
-  Future<String?> uploadCrashedCarPicture(XFile image) async {
+  Future<String?> uploadCrashedCarPicture(
+    XFile image, {
+    String? carModel,
+  }) async {
     try {
       // 현재 사용자 확인
       final user = _auth.currentUser;
@@ -83,9 +86,13 @@ class StorageService {
         customMetadata: {
           'uploadedAt': DateTime.now().toIso8601String(),
           'uid': uid,
+          if (carModel != null && carModel.isNotEmpty) 'carModel': carModel,
         },
         cacheControl: 'public, max-age=2592000', // 30일 캐싱
       );
+
+      // [디버깅] 메타데이터 출력
+      print('Uploading image with metadata: ${metadata.customMetadata}');
 
       // 3. 파일 업로드
       final TaskSnapshot uploadTask = await ref.putFile(fileToUpload, metadata);

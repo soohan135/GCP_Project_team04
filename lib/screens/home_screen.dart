@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription? _subscription;
   double _analysisProgress = 0.0;
   Timer? _progressTimer;
+  final TextEditingController _carModelController = TextEditingController();
 
   // [추가] 업로드 시작 시간을 기록하여 과거 데이터 필터링
   DateTime? _uploadStartTime;
@@ -40,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _subscription?.cancel();
     _progressTimer?.cancel();
+    _carModelController.dispose();
     super.dispose();
   }
 
@@ -231,6 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _isAnalyzing = false;
         _result = null;
         _imageUrl = null;
+        // 이미지 선택 시 기존 입력값 유지 또는 초기화 (여기서는 유지)
       });
     }
   }
@@ -250,6 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final imageUrl = await _storageService.uploadCrashedCarPicture(
         _selectedImage!,
+        carModel: _carModelController.text.trim(),
       );
       if (!mounted) return;
       _startProgressSimulation();
@@ -621,6 +625,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 24),
         // [추가] 차량 모델 입력 필드 (기능 없음, UI 전용)
         TextField(
+          controller: _carModelController,
           decoration: InputDecoration(
             hintText: '차량 모델을 입력해주세요 (선택)',
             filled: true,
